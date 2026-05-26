@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, request, flash,
 from flask_login import login_required, current_user
 from app.models import Matter, Recording, Transcript, AuditLog
 from app import db
-import os, uuid
+import os, uuid, openai
 from datetime import datetime, timezone
 from werkzeug.utils import secure_filename
 
@@ -74,7 +74,8 @@ def index():
 @login_required
 def new_recording():
     matter_id = request.args.get('matter_id', type=int)
-    matter = Matter.query.get_or_404(matter_id) if matter_id else None
+    matter    = Matter.query.get_or_404(matter_id) if matter_id else None
+    ai_transcript = None
 
     if request.method == 'POST':
         matter_id = request.form.get('matter_id', type=int)
@@ -86,35 +87,63 @@ def new_recording():
         if source == 'upload':
             file = request.files.get('audio_file')
             if file and allowed_file(file.filename):
-                ext      = file.filename.rsplit('.',1)[1].lower()
-                filename = f"{uuid.uuid4().hex}.{ext}"
-                upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+                ext         = file.filename.rsplit('.',1)[1].lower()
+                filename    = f"{uuid.uuid4().hex}.{ext}"
+                upload_path = os.path.join(
+                    current_app.config['UPLOAD_FOLDER'], filename)
                 os.makedirs(os.path.dirname(upload_path), exist_ok=True)
                 file.save(upload_path)
                 file_size = os.path.getsize(upload_path)
+
+                # AI Transcription via OpenAI Whisper API
+                api_key = os.environ.get('OPENAI_API_KEY')
+                if api_key:
+                    try:
+                        client = openai.OpenAI(api_key=api_key)
+                        with open(upload_path, 'rb') as audio_file:
+                            response = client.audio.transcriptions.create(
+                                model    = 'whisper-1',
+                                file     = audio_file,
+                                language = 'en' if request.form.get(
+                                    'language','English') != 'Setswana' else None
+                            )
+                        ai_transcript = response.text
+                    except Exception as e:
+                        ai_transcript = None
+                        flash(f'AI transcription failed: {str(e)}', 'warning')
+                else:
+                    ai_transcript = None
             else:
                 flash('Invalid or missing audio file.', 'danger')
                 return redirect(request.url)
 
         r = Recording(
-            filename     = filename or f"live_{uuid.uuid4().hex}.txt",
-            original_name= request.form.get('audio_file.filename','Live Recording'),
-            session_type = request.form.get('sessionType') or request.form.get('session_type','Court Hearing'),
-            venue        = request.form.get('venue','').strip(),
-            officer      = request.form.get('officer','').strip(),
-            language     = request.form.get('language','English'),
-            duration     = request.form.get('duration', type=int),
-            file_size    = file_size,
-            matter_id    = matter.id,
-            created_by   = current_user.id
+            filename      = filename or f"live_{uuid.uuid4().hex}.txt",
+            original_name = file.filename if source == 'upload' and file else 'Live Recording',
+            session_type  = request.form.get('sessionType') or request.form.get(
+                'session_type', 'Court Hearing'),
+            venue         = request.form.get('venue','').strip(),
+            officer       = request.form.get('officer','').strip(),
+            language      = request.form.get('language','English'),
+            duration      = request.form.get('duration', type=int),
+            file_size     = file_size,
+            matter_id     = matter.id,
+            created_by    = current_user.id
         )
         db.session.add(r)
         db.session.flush()
 
+        # Use AI transcript if available, otherwise use manual content
         transcript_content = request.form.get('transcript_content','').strip()
-        if transcript_content:
+        final_content = None
+        if source == 'upload' and ai_transcript:
+            final_content = ai_transcript
+        elif transcript_content:
+            final_content = transcript_content
+
+        if final_content:
             t = Transcript(
-                content      = transcript_content,
+                content      = final_content,
                 language     = r.language,
                 matter_id    = matter.id,
                 recording_id = r.id,
@@ -124,7 +153,12 @@ def new_recording():
 
         db.session.commit()
         log_action(f'Added recording to matter {matter.matter_number}')
-        flash('Recording saved successfully.', 'success')
+
+        if source == 'upload' and ai_transcript:
+            flash('Recording uploaded and transcribed successfully by AI.', 'success')
+        else:
+            flash('Recording saved successfully.', 'success')
+
         return redirect(url_for('recordings.view_matter', id=matter.id))
 
     return render_template('recordings/new_recording.html', matter=matter)
