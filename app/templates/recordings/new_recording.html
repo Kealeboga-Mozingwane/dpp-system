@@ -22,24 +22,29 @@
 .ctrl-btn:hover{background:rgba(255,255,255,0.1);color:white}
 .ctrl-btn.primary{background:var(--gold);border-color:var(--gold);color:var(--navy);font-weight:600}
 .ctrl-btn:disabled{opacity:0.3;cursor:not-allowed}
-.tab-buttons{display:flex;gap:0;margin-bottom:20px;border:1px solid var(--border);border-radius:8px;overflow:hidden;width:fit-content}
+.tab-buttons{display:flex;gap:0;margin-bottom:20px;border:1px solid var(--border);
+  border-radius:8px;overflow:hidden;width:fit-content}
 .tab-btn{padding:9px 20px;font-size:13px;font-weight:500;border:none;background:white;
   color:var(--muted);cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.15s}
 .tab-btn.active{background:var(--navy);color:white}
+.ai-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(201,168,76,0.1);
+  border:1px solid rgba(201,168,76,0.3);border-radius:20px;padding:4px 12px;
+  font-size:11px;font-weight:500;color:#8a6a1a;margin-bottom:16px}
 </style>
 {% endblock %}
 {% block content %}
 <div style="max-width:700px">
-  <a href="{{ url_for('recordings.view_matter', id=matter.id) }}" style="font-size:13px;color:var(--muted);display:inline-block;margin-bottom:20px">
+  <a href="{{ url_for('recordings.view_matter', id=matter.id) }}"
+     style="font-size:13px;color:var(--muted);display:inline-block;margin-bottom:20px">
     ← Back to {{ matter.matter_number }}
   </a>
 
   <div class="card" style="margin-bottom:16px">
-    <div class="card-title">Session Details</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:14px">
+    <div class="card-title" style="margin-bottom:14px">Session Details</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
       <div class="form-group">
         <label class="form-label">Session Type</label>
-        <select class="form-control" id="sessionType">
+        <select class="form-control" id="sessionType" name="sessionType">
           <option>Court Hearing</option>
           <option>Bail Application</option>
           <option>Pre-trial Conference</option>
@@ -51,33 +56,38 @@
       </div>
       <div class="form-group">
         <label class="form-label">Venue / Court</label>
-        <input type="text" class="form-control" id="venue" placeholder="e.g. High Court" value="{{ matter.court or '' }}">
+        <input type="text" class="form-control" id="venue" name="venue"
+               placeholder="e.g. High Court"
+               value="{{ matter.court or '' }}">
       </div>
       <div class="form-group">
         <label class="form-label">Language</label>
-        <select class="form-control" id="language">
+        <select class="form-control" id="language" name="language">
           <option value="English">English</option>
           <option value="Setswana">Setswana</option>
-          <option value="Mixed">Mixed</option>
+          <option value="Mixed">Mixed (English & Setswana)</option>
         </select>
       </div>
     </div>
     <div class="form-group">
       <label class="form-label">Presiding Officer / Chair</label>
-      <input type="text" class="form-control" id="officer" placeholder="Name of judge, magistrate or chairperson">
+      <input type="text" class="form-control" id="officer" name="officer"
+             placeholder="Name of judge, magistrate or chairperson">
     </div>
   </div>
 
   <div class="tab-buttons">
-    <button class="tab-btn active" onclick="switchTab('live')">🎙 Live Record</button>
-    <button class="tab-btn" onclick="switchTab('upload')">📁 Upload File</button>
+    <button class="tab-btn active" onclick="switchTab('live', this)">🎙 Live Record</button>
+    <button class="tab-btn" onclick="switchTab('upload', this)">📁 Upload File</button>
   </div>
 
   <!-- LIVE RECORDING TAB -->
   <div id="tab-live">
     <div class="recorder-box">
       <button class="rec-btn idle" id="recBtn" onclick="toggleRecording()">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="white"><circle cx="12" cy="12" r="6"/></svg>
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
+          <circle cx="12" cy="12" r="6"/>
+        </svg>
       </button>
       <div class="rec-timer" id="recTimer">00:00:00</div>
       <div class="rec-status" id="recStatus">PRESS TO BEGIN RECORDING</div>
@@ -86,50 +96,89 @@
       </div>
       <div class="rec-controls">
         <button class="ctrl-btn" id="pauseBtn" onclick="pauseRecording()" disabled>Pause</button>
-        <button class="ctrl-btn primary" id="stopBtn" onclick="stopRecording()" disabled>Stop & Save</button>
+        <button class="ctrl-btn primary" id="stopBtn" onclick="stopRecording()" disabled>
+          Stop & Save
+        </button>
       </div>
     </div>
 
-    <div class="card">
+    <div class="card" style="margin-bottom:16px">
       <div class="card-title" style="margin-bottom:12px">Live Transcript</div>
-      <div id="liveTranscript" style="min-height:120px;font-size:13px;line-height:1.8;
-        color:var(--muted);padding:4px 0" contenteditable="true">
+      <div id="liveTranscript"
+           style="min-height:120px;font-size:13px;line-height:1.8;color:var(--muted);
+                  padding:4px 0;outline:none"
+           contenteditable="true">
         Start recording to see transcript here...
       </div>
     </div>
 
-    <form method="POST" id="saveForm" style="margin-top:16px">
+    <form method="POST" id="saveForm">
       <input type="hidden" name="source" value="live">
       <input type="hidden" name="matter_id" value="{{ matter.id }}">
       <input type="hidden" name="transcript_content" id="transcriptContent">
       <input type="hidden" name="duration" id="durationInput">
-      <button type="button" class="btn btn-primary" onclick="saveSession()" style="margin-right:8px">Save Session</button>
-      <a href="{{ url_for('recordings.view_matter', id=matter.id) }}" class="btn btn-outline">Cancel</a>
+      <input type="hidden" name="sessionType" id="sessionTypeHidden">
+      <input type="hidden" name="venue" id="venueHidden">
+      <input type="hidden" name="officer" id="officerHidden">
+      <input type="hidden" name="language" id="languageHidden">
+      <div style="display:flex;gap:10px">
+        <button type="button" class="btn btn-primary" onclick="saveSession()">
+          Save Session
+        </button>
+        <a href="{{ url_for('recordings.view_matter', id=matter.id) }}"
+           class="btn btn-outline">Cancel</a>
+      </div>
     </form>
   </div>
 
   <!-- UPLOAD TAB -->
   <div id="tab-upload" style="display:none">
+    <div class="ai-badge">
+      ✦ Groq Whisper Large V3 — AI transcription in seconds
+    </div>
     <form method="POST" enctype="multipart/form-data">
       <input type="hidden" name="source" value="upload">
       <input type="hidden" name="matter_id" value="{{ matter.id }}">
+      <input type="hidden" name="sessionType" id="sessionTypeUpload">
+      <input type="hidden" name="venue" id="venueUpload">
+      <input type="hidden" name="officer" id="officerUpload">
+      <input type="hidden" name="language" id="languageUpload">
+
       <div class="card" style="margin-bottom:16px">
         <div class="card-title" style="margin-bottom:14px">Upload Audio File</div>
-        <div style="border:2px dashed var(--border);border-radius:10px;padding:32px;
-          text-align:center;cursor:pointer;transition:border-color 0.2s;position:relative"
-          id="dropZone" ondragover="event.preventDefault();this.style.borderColor='var(--gold)'"
-          ondragleave="this.style.borderColor='var(--border)'">
+        <div style="border:2px dashed var(--border);border-radius:10px;padding:36px;
+             text-align:center;cursor:pointer;transition:border-color 0.2s;position:relative"
+             id="dropZone"
+             ondragover="event.preventDefault();this.style.borderColor='var(--gold)'"
+             ondragleave="this.style.borderColor='var(--border)'">
           <input type="file" name="audio_file" accept="audio/*,video/*"
-            style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%"
-            onchange="document.getElementById('fileName').textContent=this.files[0]?.name||'No file chosen'">
-          <div style="font-size:28px;margin-bottom:8px;opacity:0.3">📁</div>
-          <div style="font-size:13px;font-weight:500;margin-bottom:4px">Drop audio file here or click to browse</div>
-          <div id="fileName" style="font-size:12px;color:var(--muted)">MP3, WAV, M4A, OGG supported — up to 500MB</div>
+                 style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%"
+                 onchange="fileSelected(this)">
+          <div style="font-size:36px;margin-bottom:10px;opacity:0.25">🎵</div>
+          <div style="font-size:14px;font-weight:500;margin-bottom:6px"
+               id="uploadTitle">
+            Drop audio file here or click to browse
+          </div>
+          <div style="font-size:12px;color:var(--muted)">
+            MP3 · WAV · M4A · OGG · MP4 · WEBM — up to 500MB
+          </div>
+        </div>
+        <div style="margin-top:14px;padding:12px 16px;background:var(--surface);
+             border-radius:8px;font-size:12px;color:var(--muted);line-height:1.6">
+          <strong style="color:var(--text)">How AI transcription works:</strong><br>
+          Your audio is sent to Groq Whisper Large V3 for transcription.
+          English sessions are transcribed directly.
+          Setswana and Mixed sessions use auto-detection for best results.
+          The transcript is automatically saved and linked to this matter.
         </div>
       </div>
+
       <div style="display:flex;gap:10px">
-        <button type="submit" class="btn btn-primary">Upload & Save</button>
-        <a href="{{ url_for('recordings.view_matter', id=matter.id) }}" class="btn btn-outline">Cancel</a>
+        <button type="submit" class="btn btn-primary" onclick="syncUploadFields()">
+          Upload & Transcribe with AI
+        </button>
+        <a href="{{ url_for('recordings.view_matter', id=matter.id) }}"
+           class="btn btn-outline">Cancel</a>
       </div>
     </form>
   </div>
@@ -139,77 +188,109 @@
 let recording=false, paused=false, seconds=0;
 let timerIv, waveIv, recognition=null, liveText='';
 
-function switchTab(tab) {
-  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',i===(tab==='live'?0:1)));
-  document.getElementById('tab-live').style.display = tab==='live'?'block':'none';
-  document.getElementById('tab-upload').style.display = tab==='upload'?'block':'none';
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-live').style.display   = tab==='live'   ? 'block' : 'none';
+  document.getElementById('tab-upload').style.display = tab==='upload' ? 'block' : 'none';
 }
 
-function toggleRecording() { recording ? stopRecording() : startRecording(); }
+function toggleRecording() {
+  recording ? stopRecording() : startRecording();
+}
 
 function startRecording() {
   recording=true; paused=false; seconds=0; liveText='';
-  const btn=document.getElementById('recBtn');
-  btn.className='rec-btn recording';
-  btn.innerHTML='<svg width="24" height="24" viewBox="0 0 24 24" fill="white"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
-  document.getElementById('recStatus').textContent='RECORDING IN PROGRESS';
-  document.getElementById('pauseBtn').disabled=false;
-  document.getElementById('stopBtn').disabled=false;
-  document.getElementById('liveTranscript').textContent='';
-  timerIv=setInterval(()=>{ if(!paused){ seconds++;
-    const h=String(Math.floor(seconds/3600)).padStart(2,'0');
-    const m=String(Math.floor((seconds%3600)/60)).padStart(2,'0');
-    const s=String(seconds%60).padStart(2,'0');
-    document.getElementById('recTimer').textContent=h+':'+m+':'+s;
-  }},1000);
-  waveIv=setInterval(()=>{ if(!paused) animateWave(); },120);
+  const btn = document.getElementById('recBtn');
+  btn.className = 'rec-btn recording';
+  btn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="white"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+  document.getElementById('recStatus').textContent  = 'RECORDING IN PROGRESS';
+  document.getElementById('pauseBtn').disabled      = false;
+  document.getElementById('stopBtn').disabled       = false;
+  document.getElementById('liveTranscript').textContent = '';
 
-  if('webkitSpeechRecognition' in window||'SpeechRecognition' in window) {
-    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-    recognition=new SR();
-    recognition.continuous=true; recognition.interimResults=true;
-    recognition.lang=document.getElementById('language').value==='Setswana'?'en-US':'en-BW';
-    recognition.onresult=(e)=>{
-      let interim='';
-      for(let i=e.resultIndex;i<e.results.length;i++){
-        if(e.results[i].isFinal) liveText+=e.results[i][0].transcript+' ';
-        else interim=e.results[i][0].transcript;
+  timerIv = setInterval(() => {
+    if (!paused) {
+      seconds++;
+      const h = String(Math.floor(seconds/3600)).padStart(2,'0');
+      const m = String(Math.floor((seconds%3600)/60)).padStart(2,'0');
+      const s = String(seconds%60).padStart(2,'0');
+      document.getElementById('recTimer').textContent = h+':'+m+':'+s;
+    }
+  }, 1000);
+
+  waveIv = setInterval(() => { if (!paused) animateWave(); }, 120);
+
+  if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SR();
+    recognition.continuous     = true;
+    recognition.interimResults = true;
+    const lang = document.getElementById('language').value;
+    recognition.lang = lang === 'Setswana' ? 'tn' : 'en-BW';
+    recognition.onresult = (e) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) liveText += e.results[i][0].transcript + ' ';
+        else interim = e.results[i][0].transcript;
       }
-      document.getElementById('liveTranscript').textContent=liveText+interim;
+      document.getElementById('liveTranscript').textContent = liveText + interim;
     };
     recognition.start();
   }
 }
 
 function pauseRecording() {
-  paused=!paused;
-  document.getElementById('pauseBtn').textContent=paused?'Resume':'Pause';
-  document.getElementById('recStatus').textContent=paused?'PAUSED':'RECORDING IN PROGRESS';
-  if(recognition) paused?recognition.stop():recognition.start();
+  paused = !paused;
+  document.getElementById('pauseBtn').textContent    = paused ? 'Resume' : 'Pause';
+  document.getElementById('recStatus').textContent   = paused ? 'PAUSED' : 'RECORDING IN PROGRESS';
+  if (recognition) paused ? recognition.stop() : recognition.start();
 }
 
 function stopRecording() {
-  recording=false; paused=false;
+  recording = false; paused = false;
   clearInterval(timerIv); clearInterval(waveIv);
-  if(recognition){recognition.stop();recognition=null;}
-  const btn=document.getElementById('recBtn');
-  btn.className='rec-btn idle';
-  btn.innerHTML='<svg width="28" height="28" viewBox="0 0 24 24" fill="white"><circle cx="12" cy="12" r="6"/></svg>';
-  document.getElementById('recStatus').textContent='RECORDING STOPPED — REVIEW AND SAVE';
-  document.getElementById('pauseBtn').disabled=true;
-  document.getElementById('stopBtn').disabled=true;
-  document.querySelectorAll('.wave-bar').forEach(b=>{b.style.height='4px';b.classList.remove('active');});
+  if (recognition) { recognition.stop(); recognition = null; }
+  const btn = document.getElementById('recBtn');
+  btn.className = 'rec-btn idle';
+  btn.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="white"><circle cx="12" cy="12" r="6"/></svg>';
+  document.getElementById('recStatus').textContent = 'RECORDING STOPPED — REVIEW AND SAVE';
+  document.getElementById('pauseBtn').disabled     = true;
+  document.getElementById('stopBtn').disabled      = true;
+  document.querySelectorAll('.wave-bar').forEach(b => {
+    b.style.height = '4px'; b.classList.remove('active');
+  });
 }
 
 function saveSession() {
-  document.getElementById('transcriptContent').value=document.getElementById('liveTranscript').textContent;
-  document.getElementById('durationInput').value=seconds;
+  document.getElementById('transcriptContent').value = document.getElementById('liveTranscript').textContent;
+  document.getElementById('durationInput').value     = seconds;
+  document.getElementById('sessionTypeHidden').value = document.getElementById('sessionType').value;
+  document.getElementById('venueHidden').value       = document.getElementById('venue').value;
+  document.getElementById('officerHidden').value     = document.getElementById('officer').value;
+  document.getElementById('languageHidden').value    = document.getElementById('language').value;
   document.getElementById('saveForm').submit();
 }
 
+function syncUploadFields() {
+  document.getElementById('sessionTypeUpload').value = document.getElementById('sessionType').value;
+  document.getElementById('venueUpload').value       = document.getElementById('venue').value;
+  document.getElementById('officerUpload').value     = document.getElementById('officer').value;
+  document.getElementById('languageUpload').value    = document.getElementById('language').value;
+}
+
+function fileSelected(input) {
+  const file = input.files[0];
+  if (file) {
+    document.getElementById('uploadTitle').textContent = '✓ ' + file.name;
+    document.getElementById('dropZone').style.borderColor = 'var(--gold)';
+  }
+}
+
 function animateWave() {
-  document.querySelectorAll('.wave-bar').forEach(b=>{
-    b.style.height=(Math.random()*28+4)+'px'; b.classList.add('active');
+  document.querySelectorAll('.wave-bar').forEach(b => {
+    b.style.height = (Math.random()*28+4) + 'px';
+    b.classList.add('active');
   });
 }
 </script>
