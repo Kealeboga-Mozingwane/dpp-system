@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Matters — DPP{% endblock %}
+{% block page_title %}Matters{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+  <div>
+    <div style="font-size:13px;color:var(--muted)">All registered matters in the system</div>
+  </div>
+  <a href="{{ url_for('recordings.new_matter') }}" class="btn btn-primary">+ New Matter</a>
+</div>
+
+<div class="card">
+  <div style="display:flex;gap:10px;margin-bottom:16px">
+    <input type="text" id="searchInput" class="form-control" placeholder="Search by matter number, title or accused..." style="max-width:400px" oninput="filterMatters()">
+    <select class="form-control" id="statusFilter" style="max-width:160px" onchange="filterMatters()">
+      <option value="">All Statuses</option>
+      <option>Active</option>
+      <option>Closed</option>
+      <option>Pending</option>
+    </select>
+  </div>
+  <div class="table-wrap">
+    <table id="mattersTable">
+      <thead>
+        <tr>
+          <th>Matter No.</th>
+          <th>Title</th>
+          <th>Type</th>
+          <th>Court</th>
+          <th>Accused</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in matters %}
+        <tr>
+          <td><strong>{{ m.matter_number }}</strong></td>
+          <td>{{ m.title }}</td>
+          <td>{{ m.matter_type or '—' }}</td>
+          <td>{{ m.court or '—' }}</td>
+          <td>{{ m.accused or '—' }}</td>
+          <td>
+            <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;
+              background:{% if m.status=='Active' %}#e8f7ef;color:#1a6640
+              {% elif m.status=='Closed' %}#f0f0f0;color:#666
+              {% else %}#fef3e8;color:#8a4a1a{% endif %}">
+              {{ m.status }}
+            </span>
+          </td>
+          <td>{{ m.created_at.strftime('%d %b %Y') }}</td>
+          <td>
+            <a href="{{ url_for('recordings.view_matter', id=m.id) }}" class="btn btn-outline btn-sm">View</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:32px">No matters found. Create your first matter.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function filterMatters() {
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const status = document.getElementById('statusFilter').value.toLowerCase();
+  document.querySelectorAll('#mattersTable tbody tr').forEach(row => {
+    const text = row.textContent.toLowerCase();
+    const matchSearch = text.includes(search);
+    const matchStatus = !status || text.includes(status);
+    row.style.display = matchSearch && matchStatus ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

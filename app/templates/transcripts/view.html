@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Transcript — DPP{% endblock %}
+{% block page_title %}Transcript{% endblock %}
+{% block content %}
+<div style="max-width:780px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+    <a href="{{ url_for('recordings.view_matter', id=transcript.matter_id) }}"
+       style="font-size:13px;color:var(--muted)">
+      ← Back to {{ transcript.matter.matter_number if transcript.matter else 'Matter' }}
+    </a>
+    <div style="display:flex;gap:8px">
+      {% if not transcript.is_approved %}
+      <form method="POST" action="{{ url_for('transcripts.approve', id=transcript.id) }}">
+        <button type="submit" class="btn btn-gold btn-sm">✓ Approve</button>
+      </form>
+      {% endif %}
+      <a href="{{ url_for('transcripts.edit', id=transcript.id) }}"
+         class="btn btn-outline btn-sm">Edit</a>
+      <button onclick="window.print()" class="btn btn-outline btn-sm">Print / PDF</button>
+      <form method="POST" action="{{ url_for('transcripts.delete', id=transcript.id) }}"
+            onsubmit="return confirm('Delete this transcript?')">
+        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
+      <div>
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;
+             letter-spacing:0.5px;margin-bottom:4px">Matter</div>
+        <div style="font-size:13px;font-weight:500">
+          {{ transcript.matter.matter_number if transcript.matter else '—' }}
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;
+             letter-spacing:0.5px;margin-bottom:4px">Session Type</div>
+        <div style="font-size:13px;font-weight:500">
+          {{ transcript.recording.session_type if transcript.recording else '—' }}
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;
+             letter-spacing:0.5px;margin-bottom:4px">Language</div>
+        <div style="font-size:13px;font-weight:500">{{ transcript.language }}</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;
+             letter-spacing:0.5px;margin-bottom:4px">Status</div>
+        <div style="font-size:13px;font-weight:500">
+          {% if transcript.is_approved %}
+          <span style="color:var(--green)">✓ Approved</span>
+          {% else %}
+          <span style="color:var(--muted)">Pending Approval</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div class="card-title">Transcript Content</div>
+      <button onclick="copyText()" class="btn btn-outline btn-sm">Copy Text</button>
+    </div>
+    <div id="transcriptText" style="font-size:13px;line-height:1.9;white-space:pre-wrap;
+         color:var(--text);border-top:1px solid var(--border);padding-top:16px">
+{{ transcript.content }}
+    </div>
+    <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);
+         font-size:11px;color:var(--muted)">
+      Created {{ transcript.created_at.strftime('%d %b %Y at %H:%M') }}
+      by {{ transcript.author.full_name if transcript.author else 'System' }}
+      {% if transcript.is_approved %}
+       · Approved {{ transcript.approved_at.strftime('%d %b %Y') if transcript.approved_at else '' }}
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+function copyText() {
+  const text = document.getElementById('transcriptText').textContent;
+  navigator.clipboard.writeText(text.trim())
+    .then(() => alert('Transcript copied to clipboard'));
+}
+</script>
+{% endblock %}

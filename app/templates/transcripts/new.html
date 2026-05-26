@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}New Transcript — DPP{% endblock %}
+{% block page_title %}New Transcript{% endblock %}
+{% block content %}
+<div style="max-width:720px">
+  <a href="{{ url_for('recordings.view_recording', id=recording.id) }}"
+     style="font-size:13px;color:var(--muted);display:inline-block;margin-bottom:20px">
+    ← Back to Recording
+  </a>
+  <div class="card">
+    <div class="card-title" style="margin-bottom:20px">Enter Transcript</div>
+    <form method="POST">
+      <input type="hidden" name="recording_id" value="{{ recording.id }}">
+      <div class="form-group">
+        <label class="form-label">Language</label>
+        <select name="language" class="form-control" style="max-width:200px">
+          <option>English</option>
+          <option>Setswana</option>
+          <option>Mixed</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Transcript Content</label>
+        <textarea name="content" class="form-control" rows="16"
+          placeholder="Type or paste transcript here...
+&#10;[HH:MM:SS] SPEAKER: What was said...
+&#10;[HH:MM:SS] SPEAKER: Response..."></textarea>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button type="submit" class="btn btn-primary">Save Transcript</button>
+        <a href="{{ url_for('recordings.view_recording', id=recording.id) }}"
+           class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

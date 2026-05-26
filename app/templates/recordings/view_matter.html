@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}{{ matter.matter_number }} — DPP{% endblock %}
+{% block page_title %}{{ matter.matter_number }}{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+  <a href="{{ url_for('recordings.matters') }}" style="font-size:13px;color:var(--muted)">← Back to Matters</a>
+  <a href="{{ url_for('recordings.new_recording', matter_id=matter.id) }}" class="btn btn-primary">+ New Recording</a>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+  <div class="card">
+    <div class="card-title">Matter Details</div>
+    <table style="margin-top:12px">
+      <tr><td style="color:var(--muted);padding:6px 0;width:130px;font-size:12px">Matter Number</td><td><strong>{{ matter.matter_number }}</strong></td></tr>
+      <tr><td style="color:var(--muted);padding:6px 0;font-size:12px">Title</td><td>{{ matter.title }}</td></tr>
+      <tr><td style="color:var(--muted);padding:6px 0;font-size:12px">Type</td><td>{{ matter.matter_type or '—' }}</td></tr>
+      <tr><td style="color:var(--muted);padding:6px 0;font-size:12px">Court</td><td>{{ matter.court or '—' }}</td></tr>
+      <tr><td style="color:var(--muted);padding:6px 0;font-size:12px">Accused</td><td>{{ matter.accused or '—' }}</td></tr>
+      <tr><td style="color:var(--muted);padding:6px 0;font-size:12px">Status</td><td>{{ matter.status }}</td></tr>
+      <tr><td style="color:var(--muted);padding:6px 0;font-size:12px">Created</td><td>{{ matter.created_at.strftime('%d %b %Y') }}</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <div class="card-title">Notes</div>
+    <p style="margin-top:12px;font-size:13px;color:var(--muted);line-height:1.6">
+      {{ matter.notes or 'No notes added.' }}
+    </p>
+  </div>
+</div>
+
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div>
+      <div class="card-title">Recordings</div>
+      <div class="card-sub">All audio sessions for this matter</div>
+    </div>
+    <a href="{{ url_for('recordings.new_recording', matter_id=matter.id) }}" class="btn btn-outline btn-sm">+ Add Recording</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Session Type</th><th>Venue</th><th>Language</th><th>Duration</th><th>Date</th><th>Transcript</th><th></th></tr></thead>
+      <tbody>
+        {% for r in matter.recordings %}
+        <tr>
+          <td>{{ r.session_type }}</td>
+          <td>{{ r.venue or '—' }}</td>
+          <td>{{ r.language }}</td>
+          <td>{{ '%d:%02d'|format(r.duration//60, r.duration%60) if r.duration else '—' }}</td>
+          <td>{{ r.created_at.strftime('%d %b %Y') }}</td>
+          <td>
+            {% if r.transcript %}
+            <span style="color:var(--green);font-size:12px;font-weight:500">✓ Done</span>
+            {% else %}
+            <span style="color:var(--muted);font-size:12px">Pending</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('recordings.view_recording', id=r.id) }}" class="btn btn-outline btn-sm">View</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">No recordings yet for this matter.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

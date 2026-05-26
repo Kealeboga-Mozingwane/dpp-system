@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — DPP{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block content %}
+<div class="stats-grid">
+  <div class="stat-card gold">
+    <div class="stat-value">{{ stats.recordings }}</div>
+    <div class="stat-label">Total Recordings</div>
+  </div>
+  <div class="stat-card gold">
+    <div class="stat-value">{{ stats.transcripts }}</div>
+    <div class="stat-label">Transcripts</div>
+  </div>
+  <div class="stat-card gold">
+    <div class="stat-value">{{ stats.matters }}</div>
+    <div class="stat-label">Active Matters</div>
+  </div>
+  <div class="stat-card gold">
+    <div class="stat-value">{{ stats.users }}</div>
+    <div class="stat-label">System Users</div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+  <div class="card">
+    <div class="card-title">Recent Recordings</div>
+    <div class="card-sub" style="margin-bottom:14px">Latest sessions captured</div>
+    {% if recent_recordings %}
+    <table>
+      <thead><tr><th>Matter</th><th>Type</th><th>Date</th></tr></thead>
+      <tbody>
+      {% for r in recent_recordings %}
+      <tr>
+        <td>{{ r.matter.matter_number if r.matter else '—' }}</td>
+        <td>{{ r.session_type }}</td>
+        <td>{{ r.created_at.strftime('%d %b %Y') }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="color:var(--muted);font-size:13px">No recordings yet.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-title">Recent Transcripts</div>
+    <div class="card-sub" style="margin-bottom:14px">Latest transcribed sessions</div>
+    {% if recent_transcripts %}
+    <table>
+      <thead><tr><th>Matter</th><th>Language</th><th>Date</th></tr></thead>
+      <tbody>
+      {% for t in recent_transcripts %}
+      <tr>
+        <td>{{ t.matter.matter_number if t.matter else '—' }}</td>
+        <td>{{ t.language }}</td>
+        <td>{{ t.created_at.strftime('%d %b %Y') }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="color:var(--muted);font-size:13px">No transcripts yet.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

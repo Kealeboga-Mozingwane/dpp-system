@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}New Recording — DPP{% endblock %}
+{% block page_title %}New Recording{% endblock %}
+{% block extra_css %}
+<style>
+.recorder-box{background:var(--navy);border-radius:12px;padding:28px;text-align:center;margin-bottom:20px}
+.rec-btn{width:72px;height:72px;border-radius:50%;border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;margin:0 auto 14px;transition:all 0.2s}
+.rec-btn.idle{background:var(--gold)}
+.rec-btn.recording{background:#c0392b;animation:pulse 1.5s infinite}
+.rec-btn.paused{background:#e67e22}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,0.5)}50%{box-shadow:0 0 0 14px rgba(192,57,43,0)}}
+.rec-timer{font-size:36px;font-weight:700;color:white;letter-spacing:3px;font-family:monospace;margin-bottom:6px}
+.rec-status{font-size:12px;color:rgba(255,255,255,0.45);letter-spacing:0.5px}
+.wave{height:36px;display:flex;align-items:center;justify-content:center;gap:3px;margin:14px 0 0}
+.wave-bar{width:3px;background:rgba(201,168,76,0.3);border-radius:2px;height:4px;transition:height 0.1s}
+.wave-bar.active{background:var(--gold)}
+.rec-controls{display:flex;gap:10px;justify-content:center;margin-top:14px}
+.ctrl-btn{padding:8px 20px;border-radius:20px;border:1px solid rgba(255,255,255,0.2);
+  background:transparent;color:rgba(255,255,255,0.7);font-size:12px;cursor:pointer;
+  font-family:'Inter',sans-serif;transition:all 0.15s}
+.ctrl-btn:hover{background:rgba(255,255,255,0.1);color:white}
+.ctrl-btn.primary{background:var(--gold);border-color:var(--gold);color:var(--navy);font-weight:600}
+.ctrl-btn:disabled{opacity:0.3;cursor:not-allowed}
+.tab-buttons{display:flex;gap:0;margin-bottom:20px;border:1px solid var(--border);border-radius:8px;overflow:hidden;width:fit-content}
+.tab-btn{padding:9px 20px;font-size:13px;font-weight:500;border:none;background:white;
+  color:var(--muted);cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.15s}
+.tab-btn.active{background:var(--navy);color:white}
+</style>
+{% endblock %}
+{% block content %}
+<div style="max-width:700px">
+  <a href="{{ url_for('recordings.view_matter', id=matter.id) }}" style="font-size:13px;color:var(--muted);display:inline-block;margin-bottom:20px">
+    ← Back to {{ matter.matter_number }}
+  </a>
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title">Session Details</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:14px">
+      <div class="form-group">
+        <label class="form-label">Session Type</label>
+        <select class="form-control" id="sessionType">
+          <option>Court Hearing</option>
+          <option>Bail Application</option>
+          <option>Pre-trial Conference</option>
+          <option>Witness Interview</option>
+          <option>Plea & Sentencing</option>
+          <option>Team Meeting</option>
+          <option>Consultation</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Venue / Court</label>
+        <input type="text" class="form-control" id="venue" placeholder="e.g. High Court" value="{{ matter.court or '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Language</label>
+        <select class="form-control" id="language">
+          <option value="English">English</option>
+          <option value="Setswana">Setswana</option>
+          <option value="Mixed">Mixed</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Presiding Officer / Chair</label>
+      <input type="text" class="form-control" id="officer" placeholder="Name of judge, magistrate or chairperson">
+    </div>
+  </div>
+
+  <div class="tab-buttons">
+    <button class="tab-btn active" onclick="switchTab('live')">🎙 Live Record</button>
+    <button class="tab-btn" onclick="switchTab('upload')">📁 Upload File</button>
+  </div>
+
+  <!-- LIVE RECORDING TAB -->
+  <div id="tab-live">
+    <div class="recorder-box">
+      <button class="rec-btn idle" id="recBtn" onclick="toggleRecording()">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="white"><circle cx="12" cy="12" r="6"/></svg>
+      </button>
+      <div class="rec-timer" id="recTimer">00:00:00</div>
+      <div class="rec-status" id="recStatus">PRESS TO BEGIN RECORDING</div>
+      <div class="wave" id="waveform">
+        {% for i in range(20) %}<div class="wave-bar"></div>{% endfor %}
+      </div>
+      <div class="rec-controls">
+        <button class="ctrl-btn" id="pauseBtn" onclick="pauseRecording()" disabled>Pause</button>
+        <button class="ctrl-btn primary" id="stopBtn" onclick="stopRecording()" disabled>Stop & Save</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:12px">Live Transcript</div>
+      <div id="liveTranscript" style="min-height:120px;font-size:13px;line-height:1.8;
+        color:var(--muted);padding:4px 0" contenteditable="true">
+        Start recording to see transcript here...
+      </div>
+    </div>
+
+    <form method="POST" id="saveForm" style="margin-top:16px">
+      <input type="hidden" name="source" value="live">
+      <input type="hidden" name="matter_id" value="{{ matter.id }}">
+      <input type="hidden" name="transcript_content" id="transcriptContent">
+      <input type="hidden" name="duration" id="durationInput">
+      <button type="button" class="btn btn-primary" onclick="saveSession()" style="margin-right:8px">Save Session</button>
+      <a href="{{ url_for('recordings.view_matter', id=matter.id) }}" class="btn btn-outline">Cancel</a>
+    </form>
+  </div>
+
+  <!-- UPLOAD TAB -->
+  <div id="tab-upload" style="display:none">
+    <form method="POST" enctype="multipart/form-data">
+      <input type="hidden" name="source" value="upload">
+      <input type="hidden" name="matter_id" value="{{ matter.id }}">
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title" style="margin-bottom:14px">Upload Audio File</div>
+        <div style="border:2px dashed var(--border);border-radius:10px;padding:32px;
+          text-align:center;cursor:pointer;transition:border-color 0.2s;position:relative"
+          id="dropZone" ondragover="event.preventDefault();this.style.borderColor='var(--gold)'"
+          ondragleave="this.style.borderColor='var(--border)'">
+          <input type="file" name="audio_file" accept="audio/*,video/*"
+            style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%"
+            onchange="document.getElementById('fileName').textContent=this.files[0]?.name||'No file chosen'">
+          <div style="font-size:28px;margin-bottom:8px;opacity:0.3">📁</div>
+          <div style="font-size:13px;font-weight:500;margin-bottom:4px">Drop audio file here or click to browse</div>
+          <div id="fileName" style="font-size:12px;color:var(--muted)">MP3, WAV, M4A, OGG supported — up to 500MB</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button type="submit" class="btn btn-primary">Upload & Save</button>
+        <a href="{{ url_for('recordings.view_matter', id=matter.id) }}" class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+let recording=false, paused=false, seconds=0;
+let timerIv, waveIv, recognition=null, liveText='';
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',i===(tab==='live'?0:1)));
+  document.getElementById('tab-live').style.display = tab==='live'?'block':'none';
+  document.getElementById('tab-upload').style.display = tab==='upload'?'block':'none';
+}
+
+function toggleRecording() { recording ? stopRecording() : startRecording(); }
+
+function startRecording() {
+  recording=true; paused=false; seconds=0; liveText='';
+  const btn=document.getElementById('recBtn');
+  btn.className='rec-btn recording';
+  btn.innerHTML='<svg width="24" height="24" viewBox="0 0 24 24" fill="white"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+  document.getElementById('recStatus').textContent='RECORDING IN PROGRESS';
+  document.getElementById('pauseBtn').disabled=false;
+  document.getElementById('stopBtn').disabled=false;
+  document.getElementById('liveTranscript').textContent='';
+  timerIv=setInterval(()=>{ if(!paused){ seconds++;
+    const h=String(Math.floor(seconds/3600)).padStart(2,'0');
+    const m=String(Math.floor((seconds%3600)/60)).padStart(2,'0');
+    const s=String(seconds%60).padStart(2,'0');
+    document.getElementById('recTimer').textContent=h+':'+m+':'+s;
+  }},1000);
+  waveIv=setInterval(()=>{ if(!paused) animateWave(); },120);
+
+  if('webkitSpeechRecognition' in window||'SpeechRecognition' in window) {
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    recognition=new SR();
+    recognition.continuous=true; recognition.interimResults=true;
+    recognition.lang=document.getElementById('language').value==='Setswana'?'en-US':'en-BW';
+    recognition.onresult=(e)=>{
+      let interim='';
+      for(let i=e.resultIndex;i<e.results.length;i++){
+        if(e.results[i].isFinal) liveText+=e.results[i][0].transcript+' ';
+        else interim=e.results[i][0].transcript;
+      }
+      document.getElementById('liveTranscript').textContent=liveText+interim;
+    };
+    recognition.start();
+  }
+}
+
+function pauseRecording() {
+  paused=!paused;
+  document.getElementById('pauseBtn').textContent=paused?'Resume':'Pause';
+  document.getElementById('recStatus').textContent=paused?'PAUSED':'RECORDING IN PROGRESS';
+  if(recognition) paused?recognition.stop():recognition.start();
+}
+
+function stopRecording() {
+  recording=false; paused=false;
+  clearInterval(timerIv); clearInterval(waveIv);
+  if(recognition){recognition.stop();recognition=null;}
+  const btn=document.getElementById('recBtn');
+  btn.className='rec-btn idle';
+  btn.innerHTML='<svg width="28" height="28" viewBox="0 0 24 24" fill="white"><circle cx="12" cy="12" r="6"/></svg>';
+  document.getElementById('recStatus').textContent='RECORDING STOPPED — REVIEW AND SAVE';
+  document.getElementById('pauseBtn').disabled=true;
+  document.getElementById('stopBtn').disabled=true;
+  document.querySelectorAll('.wave-bar').forEach(b=>{b.style.height='4px';b.classList.remove('active');});
+}
+
+function saveSession() {
+  document.getElementById('transcriptContent').value=document.getElementById('liveTranscript').textContent;
+  document.getElementById('durationInput').value=seconds;
+  document.getElementById('saveForm').submit();
+}
+
+function animateWave() {
+  document.querySelectorAll('.wave-bar').forEach(b=>{
+    b.style.height=(Math.random()*28+4)+'px'; b.classList.add('active');
+  });
+}
+</script>
+{% endblock %}

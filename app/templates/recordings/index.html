@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Recordings — DPP{% endblock %}
+{% block page_title %}All Recordings{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Matter</th><th>Session Type</th><th>Venue</th><th>Language</th><th>Duration</th><th>Date</th><th></th></tr></thead>
+      <tbody>
+        {% for r in recordings %}
+        <tr>
+          <td><strong>{{ r.matter.matter_number if r.matter else '—' }}</strong></td>
+          <td>{{ r.session_type }}</td>
+          <td>{{ r.venue or '—' }}</td>
+          <td>{{ r.language }}</td>
+          <td>{{ '%d:%02d'|format(r.duration//60, r.duration%60) if r.duration else '—' }}</td>
+          <td>{{ r.created_at.strftime('%d %b %Y') }}</td>
+          <td><a href="{{ url_for('recordings.view_recording', id=r.id) }}" class="btn btn-outline btn-sm">View</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">No recordings yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

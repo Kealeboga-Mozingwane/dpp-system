@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}My Profile — DPP{% endblock %}
+{% block page_title %}My Profile{% endblock %}
+{% block content %}
+<div style="max-width:560px">
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title" style="margin-bottom:20px">Profile Details</div>
+    <form method="POST">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input type="text" name="full_name" class="form-control"
+                 value="{{ current_user.full_name or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Username</label>
+          <input type="text" class="form-control"
+                 value="{{ current_user.username }}" disabled
+                 style="background:var(--surface);color:var(--muted)">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" name="email" class="form-control"
+                 value="{{ current_user.email or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone</label>
+          <input type="text" name="phone" class="form-control"
+                 value="{{ current_user.phone or '' }}">
+        </div>
+      </div>
+
+      <div style="background:var(--surface);border-radius:8px;padding:16px;margin-bottom:16px">
+        <div style="font-size:12px;font-weight:600;color:var(--muted);
+             text-transform:uppercase;letter-spacing:0.4px;margin-bottom:12px">
+          Change Password
+        </div>
+        <div class="form-group">
+          <label class="form-label">Current Password</label>
+          <input type="password" name="current_password" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label">New Password</label>
+          <input type="password" name="new_password" class="form-control"
+                 placeholder="Leave blank to keep current">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">Save Changes</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

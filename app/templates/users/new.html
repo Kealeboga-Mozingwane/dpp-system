@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}New User — DPP{% endblock %}
+{% block page_title %}New User{% endblock %}
+{% block content %}
+<div style="max-width:560px">
+  <a href="{{ url_for('users.index') }}"
+     style="font-size:13px;color:var(--muted);display:inline-block;margin-bottom:20px">
+    ← Back to Users
+  </a>
+  <div class="card">
+    <div class="card-title" style="margin-bottom:20px">Create New User</div>
+    <form method="POST">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input type="text" name="full_name" class="form-control" placeholder="e.g. Thato Segola" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Username *</label>
+          <input type="text" name="username" class="form-control" placeholder="e.g. tsegola" required>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" name="email" class="form-control" placeholder="user@dpp.gov.bw">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone</label>
+          <input type="text" name="phone" class="form-control" placeholder="+267 7X XXX XXX">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="form-group">
+          <label class="form-label">Role *</label>
+          <select name="role" class="form-control">
+            <option value="Prosecutor">Prosecutor</option>
+            <option value="Secretary">Secretary</option>
+            <option value="Admin">Admin</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password *</label>
+          <input type="password" name="password" class="form-control"
+                 placeholder="Minimum 8 characters" required minlength="8">
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:8px">
+        <button type="submit" class="btn btn-primary">Create User</button>
+        <a href="{{ url_for('users.index') }}" class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

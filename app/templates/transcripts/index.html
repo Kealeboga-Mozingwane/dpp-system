@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Transcripts — DPP{% endblock %}
+{% block page_title %}All Transcripts{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Matter</th>
+          <th>Session Type</th>
+          <th>Language</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in transcripts %}
+        <tr>
+          <td><strong>{{ t.matter.matter_number if t.matter else '—' }}</strong></td>
+          <td>{{ t.recording.session_type if t.recording else '—' }}</td>
+          <td>{{ t.language }}</td>
+          <td>
+            {% if t.is_approved %}
+            <span style="color:var(--green);font-size:12px;font-weight:500">✓ Approved</span>
+            {% else %}
+            <span style="color:var(--muted);font-size:12px">Pending</span>
+            {% endif %}
+          </td>
+          <td>{{ t.created_at.strftime('%d %b %Y') }}</td>
+          <td>
+            <a href="{{ url_for('transcripts.view', id=t.id) }}"
+               class="btn btn-outline btn-sm">View</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" style="text-align:center;color:var(--muted);padding:32px">
+            No transcripts yet.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

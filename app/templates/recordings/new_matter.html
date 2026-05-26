@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}New Matter — DPP{% endblock %}
+{% block page_title %}New Matter{% endblock %}
+{% block content %}
+<div style="max-width:640px">
+  <a href="{{ url_for('recordings.matters') }}" style="font-size:13px;color:var(--muted);display:inline-flex;align-items:center;gap:6px;margin-bottom:20px">
+    ← Back to Matters
+  </a>
+  <div class="card">
+    <div class="card-title" style="margin-bottom:20px">Register New Matter</div>
+    <form method="POST">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="form-group">
+          <label class="form-label">Matter Number *</label>
+          <input type="text" name="matter_number" class="form-control" placeholder="e.g. CRIM-2026-0142" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Matter Type</label>
+          <select name="matter_type" class="form-control">
+            <option>Criminal</option>
+            <option>Civil</option>
+            <option>Conveyancing</option>
+            <option>Notarial</option>
+            <option>Appeals</option>
+            <option>Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Title / Description *</label>
+        <input type="text" name="title" class="form-control" placeholder="e.g. State v. Mokobi — Fraud" required>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="form-group">
+          <label class="form-label">Court</label>
+          <select name="court" class="form-control">
+            <option>High Court of Botswana</option>
+            <option>Magistrate Court — Gaborone</option>
+            <option>Magistrate Court — Francistown</option>
+            <option>Court of Appeal</option>
+            <option>Customary Court</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select name="status" class="form-control">
+            <option>Active</option>
+            <option>Pending</option>
+            <option>Closed</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Accused / Respondent</label>
+        <input type="text" name="accused" class="form-control" placeholder="Full name of accused or respondent">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea name="notes" class="form-control" rows="3" placeholder="Any additional notes about this matter..."></textarea>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:8px">
+        <button type="submit" class="btn btn-primary">Save Matter</button>
+        <a href="{{ url_for('recordings.matters') }}" class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
