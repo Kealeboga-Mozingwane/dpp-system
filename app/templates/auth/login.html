@@ -2,17 +2,75 @@
 {% block title %}Sign In — DPP{% endblock %}
 {% block content %}
 <style>
-.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;
-  background:var(--navy);margin:-28px}
-.login-box{background:white;border-radius:14px;padding:40px;width:100%;max-width:400px}
-.login-logo{text-align:center;margin-bottom:28px}
-.login-logo .mark{width:52px;height:52px;background:var(--navy);border-radius:12px;
-  display:flex;align-items:center;justify-content:center;font-size:18px;
-  font-weight:700;color:var(--gold);margin:0 auto 12px}
-.login-logo h1{font-size:20px;font-weight:700;color:var(--navy)}
-.login-logo p{font-size:12px;color:var(--muted);margin-top:4px}
-.btn-block{width:100%;padding:11px}
+body { background: var(--navy) !important; }
+.content { padding: 0 !important; }
+.login-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--navy);
+  margin: -28px;
+}
+.login-box {
+  background: white;
+  border-radius: 16px;
+  padding: 44px 40px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.login-logo {
+  text-align: center;
+  margin-bottom: 32px;
+}
+.login-logo .mark {
+  width: 60px;
+  height: 60px;
+  background: var(--navy);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--gold);
+  margin: 0 auto 14px;
+}
+.login-logo h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 6px;
+}
+.login-logo p {
+  font-size: 12px;
+  color: var(--muted);
+}
+.btn-block {
+  width: 100%;
+  padding: 12px;
+  font-size: 14px;
+  margin-top: 4px;
+}
+.divider {
+  text-align: center;
+  margin: 20px 0;
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+.login-footer {
+  text-align: center;
+  margin-top: 24px;
+  font-size: 11px;
+  color: var(--muted);
+}
 </style>
+
 <div class="login-wrap">
   <div class="login-box">
     <div class="login-logo">
@@ -20,22 +78,39 @@
       <h1>DPP Transcription System</h1>
       <p>Directorate of Public Prosecutions — Botswana</p>
     </div>
+
     {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}{% for category, message in messages %}
-        <div class="flash flash-{{ category }}">{{ message }}</div>
-      {% endfor %}{% endif %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="flash flash-{{ category }}" style="margin-bottom:16px">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
     {% endwith %}
+
     <form method="POST">
       <div class="form-group">
         <label class="form-label">Username</label>
-        <input type="text" name="username" class="form-control" placeholder="Enter your username" required autofocus>
+        <input type="text" name="username" class="form-control"
+               placeholder="Enter your username"
+               value="{{ request.form.get('username', '') }}"
+               required autofocus
+               style="padding:11px 14px;font-size:14px">
       </div>
-      <div class="form-group">
+      <div class="form-group" style="margin-bottom:20px">
         <label class="form-label">Password</label>
-        <input type="password" name="password" class="form-control" placeholder="Enter your password" required>
+        <input type="password" name="password" class="form-control"
+               placeholder="Enter your password"
+               required
+               style="padding:11px 14px;font-size:14px">
       </div>
       <button type="submit" class="btn btn-primary btn-block">Sign In</button>
     </form>
+
+    <div class="login-footer">
+      Republic of Botswana &nbsp;·&nbsp; Confidential System &nbsp;·&nbsp; Authorised Users Only
+    </div>
   </div>
 </div>
 {% endblock %}

@@ -148,7 +148,7 @@ tr:hover td{background:var(--surface)}
 </div>
 {% endif %}
 
-<div class="main">
+<div class="main" style="{% if not current_user.is_authenticated %}margin-left:0{% endif %}">
   {% if current_user.is_authenticated %}
   <div class="topbar">
     <div class="topbar-title">{% block page_title %}{% endblock %}</div>
