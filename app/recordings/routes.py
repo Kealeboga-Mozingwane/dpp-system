@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, request, flash,
 from flask_login import login_required, current_user
 from app.models import Matter, Recording, Transcript, AuditLog
 from app import db
-import os, uuid, openai
+import os, uuid
 from datetime import datetime, timezone
 from werkzeug.utils import secure_filename
 
@@ -25,6 +25,25 @@ def log_action(action):
 
 def _now():
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+def transcribe_with_groq(file_path, language='en'):
+    """Transcribe audio using Groq Whisper API"""
+    api_key = os.environ.get('GROQ_API_KEY')
+    if not api_key:
+        return None, 'GROQ_API_KEY not set in environment'
+    try:
+        from groq import Groq
+        client = Groq(api_key=api_key)
+        with open(file_path, 'rb') as audio_file:
+            response = client.audio.transcriptions.create(
+                model    = 'whisper-large-v3',
+                file     = audio_file,
+                language = language if language != 'auto' else None,
+                response_format = 'text'
+            )
+        return response, None
+    except Exception as e:
+        return None, str(e)
 
 @recordings.route('/matters')
 @login_required
@@ -73,16 +92,17 @@ def index():
 @recordings.route('/recordings/new', methods=['GET','POST'])
 @login_required
 def new_recording():
-    matter_id = request.args.get('matter_id', type=int)
-    matter    = Matter.query.get_or_404(matter_id) if matter_id else None
+    matter_id     = request.args.get('matter_id', type=int)
+    matter        = Matter.query.get_or_404(matter_id) if matter_id else None
     ai_transcript = None
 
     if request.method == 'POST':
-        matter_id = request.form.get('matter_id', type=int)
-        matter    = Matter.query.get_or_404(matter_id)
-        source    = request.form.get('source', 'live')
-        filename  = None
-        file_size = None
+        matter_id  = request.form.get('matter_id', type=int)
+        matter     = Matter.query.get_or_404(matter_id)
+        source     = request.form.get('source', 'live')
+        filename   = None
+        file_size  = None
+        language   = request.form.get('language', 'English')
 
         if source == 'upload':
             file = request.files.get('audio_file')
@@ -95,24 +115,19 @@ def new_recording():
                 file.save(upload_path)
                 file_size = os.path.getsize(upload_path)
 
-                # AI Transcription via OpenAI Whisper API
-                api_key = os.environ.get('OPENAI_API_KEY')
-                if api_key:
-                    try:
-                        client = openai.OpenAI(api_key=api_key)
-                        with open(upload_path, 'rb') as audio_file:
-                            response = client.audio.transcriptions.create(
-                                model    = 'whisper-1',
-                                file     = audio_file,
-                                language = 'en' if request.form.get(
-                                    'language','English') != 'Setswana' else None
-                            )
-                        ai_transcript = response.text
-                    except Exception as e:
-                        ai_transcript = None
-                        flash(f'AI transcription failed: {str(e)}', 'warning')
-                else:
-                    ai_transcript = None
+                # Map language to Whisper language code
+                lang_map = {
+                    'English':  'en',
+                    'Setswana': 'auto',
+                    'Mixed':    'auto'
+                }
+                whisper_lang = lang_map.get(language, 'en')
+
+                # Transcribe with Groq Whisper
+                ai_transcript, error = transcribe_with_groq(upload_path, whisper_lang)
+                if error:
+                    flash(f'AI transcription failed: {error}', 'warning')
+
             else:
                 flash('Invalid or missing audio file.', 'danger')
                 return redirect(request.url)
@@ -122,9 +137,9 @@ def new_recording():
             original_name = file.filename if source == 'upload' and file else 'Live Recording',
             session_type  = request.form.get('sessionType') or request.form.get(
                 'session_type', 'Court Hearing'),
-            venue         = request.form.get('venue','').strip(),
-            officer       = request.form.get('officer','').strip(),
-            language      = request.form.get('language','English'),
+            venue         = request.form.get('venue', '').strip(),
+            officer       = request.form.get('officer', '').strip(),
+            language      = language,
             duration      = request.form.get('duration', type=int),
             file_size     = file_size,
             matter_id     = matter.id,
@@ -134,8 +149,9 @@ def new_recording():
         db.session.flush()
 
         # Use AI transcript if available, otherwise use manual content
-        transcript_content = request.form.get('transcript_content','').strip()
-        final_content = None
+        transcript_content = request.form.get('transcript_content', '').strip()
+        final_content      = None
+
         if source == 'upload' and ai_transcript:
             final_content = ai_transcript
         elif transcript_content:
@@ -144,7 +160,7 @@ def new_recording():
         if final_content:
             t = Transcript(
                 content      = final_content,
-                language     = r.language,
+                language     = language,
                 matter_id    = matter.id,
                 recording_id = r.id,
                 created_by   = current_user.id
@@ -155,7 +171,7 @@ def new_recording():
         log_action(f'Added recording to matter {matter.matter_number}')
 
         if source == 'upload' and ai_transcript:
-            flash('Recording uploaded and transcribed successfully by AI.', 'success')
+            flash('Recording uploaded and transcribed successfully by Groq AI.', 'success')
         else:
             flash('Recording saved successfully.', 'success')
 
