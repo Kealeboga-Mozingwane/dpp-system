@@ -147,6 +147,37 @@ def view_matter(id):
     return render_template('recordings/view_matter.html', matter=matter)
 
 
+@recordings.route('/matters/<int:id>/delete', methods=['POST'])
+@login_required
+def delete_matter(id):
+    matter = Matter.query.get_or_404(id)
+
+    # Delete physical audio files and transcripts for all recordings
+    for r in matter.recordings:
+        if r.filename:
+            file_path = os.path.join(
+                current_app.config['UPLOAD_FOLDER'], r.filename)
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except Exception:
+                    pass
+        if r.transcript:
+            db.session.delete(r.transcript)
+        db.session.delete(r)
+
+    # Delete any transcripts linked directly to the matter
+    for t in matter.transcripts:
+        db.session.delete(t)
+
+    matter_number = matter.matter_number
+    log_action(f'Deleted matter {matter_number}')
+    db.session.delete(matter)
+    db.session.commit()
+    flash(f'Matter {matter_number} and all its recordings and transcripts have been deleted.', 'success')
+    return redirect(url_for('recordings.matters'))
+
+
 @recordings.route('/recordings')
 @login_required
 def index():
@@ -248,7 +279,6 @@ def delete_recording(id):
     recording = Recording.query.get_or_404(id)
     matter_id = recording.matter_id
 
-    # Delete the physical audio file from disk if it exists
     if recording.filename:
         file_path = os.path.join(
             current_app.config['UPLOAD_FOLDER'], recording.filename)
@@ -256,9 +286,8 @@ def delete_recording(id):
             try:
                 os.remove(file_path)
             except Exception:
-                pass  # Log but don't block deletion
+                pass
 
-    # Delete linked transcript if any
     if recording.transcript:
         db.session.delete(recording.transcript)
 

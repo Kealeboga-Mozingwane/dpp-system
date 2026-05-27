@@ -8,11 +8,13 @@
   </div>
   <a href="{{ url_for('recordings.new_matter') }}" class="btn btn-primary">+ New Matter</a>
 </div>
-
 <div class="card">
   <div style="display:flex;gap:10px;margin-bottom:16px">
-    <input type="text" id="searchInput" class="form-control" placeholder="Search by matter number, title or accused..." style="max-width:400px" oninput="filterMatters()">
-    <select class="form-control" id="statusFilter" style="max-width:160px" onchange="filterMatters()">
+    <input type="text" id="searchInput" class="form-control"
+           placeholder="Search by matter number, title or accused..."
+           style="max-width:400px" oninput="filterMatters()">
+    <select class="form-control" id="statusFilter"
+            style="max-width:160px" onchange="filterMatters()">
       <option value="">All Statuses</option>
       <option>Active</option>
       <option>Closed</option>
@@ -50,18 +52,27 @@
             </span>
           </td>
           <td>{{ m.created_at.strftime('%d %b %Y') }}</td>
-          <td>
-            <a href="{{ url_for('recordings.view_matter', id=m.id) }}" class="btn btn-outline btn-sm">View</a>
+          <td style="display:flex;gap:6px">
+            <a href="{{ url_for('recordings.view_matter', id=m.id) }}"
+               class="btn btn-outline btn-sm">View</a>
+            <form method="POST"
+                  action="{{ url_for('recordings.delete_matter', id=m.id) }}"
+                  onsubmit="return confirm('Delete matter {{ m.matter_number }}?\n\nThis will permanently delete all its recordings and transcripts. This cannot be undone.')">
+              <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+            </form>
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:32px">No matters found. Create your first matter.</td></tr>
+        <tr>
+          <td colspan="8" style="text-align:center;color:var(--muted);padding:32px">
+            No matters found. Create your first matter.
+          </td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </div>
-
 <script>
 function filterMatters() {
   const search = document.getElementById('searchInput').value.toLowerCase();
