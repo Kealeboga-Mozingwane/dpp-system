@@ -3,11 +3,19 @@
 {% block page_title %}Transcript{% endblock %}
 {% block content %}
 <div style="max-width:780px">
+
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+    {% if highlight_query %}
+    <a href="{{ url_for('transcripts.search', q=highlight_query) }}"
+       style="font-size:13px;color:var(--muted)">
+      ← Back to Search Results
+    </a>
+    {% else %}
     <a href="{{ url_for('recordings.view_matter', id=transcript.matter_id) }}"
        style="font-size:13px;color:var(--muted)">
       ← Back to {{ transcript.matter.matter_number if transcript.matter else 'Matter' }}
     </a>
+    {% endif %}
     <div style="display:flex;gap:8px">
       {% if not transcript.is_approved %}
       <form method="POST" action="{{ url_for('transcripts.approve', id=transcript.id) }}">
@@ -59,15 +67,29 @@
     </div>
   </div>
 
+  {% if highlight_query %}
+  <div style="background:#fef9ec;border:1px solid var(--gold);border-radius:8px;
+       padding:10px 14px;margin-bottom:16px;font-size:13px;
+       display:flex;align-items:center;justify-content:space-between">
+    <span>
+      Highlighting matches for <strong>"{{ highlight_query }}"</strong>
+      <span id="matchInfo" style="color:var(--muted);margin-left:8px"></span>
+    </span>
+    <div style="display:flex;gap:8px">
+      <button onclick="prevMatch()" class="btn btn-outline btn-sm">↑ Prev</button>
+      <button onclick="nextMatch()" class="btn btn-outline btn-sm">↓ Next</button>
+    </div>
+  </div>
+  {% endif %}
+
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <div class="card-title">Transcript Content</div>
       <button onclick="copyText()" class="btn btn-outline btn-sm">Copy Text</button>
     </div>
-    <div id="transcriptText" style="font-size:13px;line-height:1.9;white-space:pre-wrap;
-         color:var(--text);border-top:1px solid var(--border);padding-top:16px">
-{{ transcript.content }}
-    </div>
+    <div id="transcriptText"
+         style="font-size:13px;line-height:1.9;white-space:pre-wrap;
+                color:var(--text);border-top:1px solid var(--border);padding-top:16px">{{ transcript.content }}</div>
     <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);
          font-size:11px;color:var(--muted)">
       Created {{ transcript.created_at.strftime('%d %b %Y at %H:%M') }}
@@ -77,6 +99,7 @@
       {% endif %}
     </div>
   </div>
+
 </div>
 
 <script>
@@ -84,6 +107,48 @@ function copyText() {
   const text = document.getElementById('transcriptText').textContent;
   navigator.clipboard.writeText(text.trim())
     .then(() => alert('Transcript copied to clipboard'));
+}
+
+const query = {{ highlight_query | tojson }};
+let matchIndex = 0;
+let matches = [];
+
+if (query) {
+  const container = document.getElementById('transcriptText');
+  const raw = container.textContent;
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(escaped, 'gi');
+  container.innerHTML = raw.replace(regex, m =>
+    `<mark style="background:#fff176;border-radius:2px;padding:0 2px">${m}</mark>`
+  );
+  matches = Array.from(container.querySelectorAll('mark'));
+  const info = document.getElementById('matchInfo');
+  if (matches.length) {
+    info.textContent = `(${matches.length} match${matches.length !== 1 ? 'es' : ''})`;
+    scrollToMatch(0);
+  } else {
+    info.textContent = '(no matches)';
+  }
+}
+
+function scrollToMatch(i) {
+  if (!matches.length) return;
+  matches.forEach(m => m.style.background = '#fff176');
+  matches[i].style.background = '#ffb300';
+  matches[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
+  document.getElementById('matchInfo').textContent = `(${i + 1} / ${matches.length})`;
+}
+
+function nextMatch() {
+  if (!matches.length) return;
+  matchIndex = (matchIndex + 1) % matches.length;
+  scrollToMatch(matchIndex);
+}
+
+function prevMatch() {
+  if (!matches.length) return;
+  matchIndex = (matchIndex - 1 + matches.length) % matches.length;
+  scrollToMatch(matchIndex);
 }
 </script>
 {% endblock %}

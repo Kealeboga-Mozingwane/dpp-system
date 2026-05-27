@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Search Transcripts — DPP{% endblock %}
+{% block page_title %}Search Transcripts{% endblock %}
+{% block content %}
+
+<div class="card" style="margin-bottom:24px">
+  <form method="GET" action="{{ url_for('transcripts.search') }}">
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+
+      <div style="flex:2;min-width:200px">
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Keyword Search</label>
+        <input type="text" name="q" value="{{ query }}"
+               placeholder="Matter number, accused, content, venue…"
+               style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;
+                      font-size:14px;background:white;color:var(--text);font-family:'Inter',sans-serif;
+                      outline:none">
+      </div>
+
+      <div style="flex:1;min-width:140px">
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Language</label>
+        <select name="language" class="form-control">
+          <option value="">All Languages</option>
+          <option value="English"     {% if language == 'English'     %}selected{% endif %}>English</option>
+          <option value="Setswana"    {% if language == 'Setswana'    %}selected{% endif %}>Setswana</option>
+          <option value="Kalanga"     {% if language == 'Kalanga'     %}selected{% endif %}>Kalanga</option>
+          <option value="Sekgalagadi" {% if language == 'Sekgalagadi' %}selected{% endif %}>Sekgalagadi</option>
+        </select>
+      </div>
+
+      <div style="flex:1;min-width:140px">
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Session Type</label>
+        <select name="session_type" class="form-control">
+          <option value="">All Sessions</option>
+          <option value="Interview"    {% if session_type == 'Interview'    %}selected{% endif %}>Interview</option>
+          <option value="Trial"        {% if session_type == 'Trial'        %}selected{% endif %}>Trial</option>
+          <option value="Hearing"      {% if session_type == 'Hearing'      %}selected{% endif %}>Hearing</option>
+          <option value="Consultation" {% if session_type == 'Consultation' %}selected{% endif %}>Consultation</option>
+        </select>
+      </div>
+
+      <div style="flex:1;min-width:120px">
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Status</label>
+        <select name="status" class="form-control">
+          <option value="">All</option>
+          <option value="approved" {% if status == 'approved' %}selected{% endif %}>Approved</option>
+          <option value="pending"  {% if status == 'pending'  %}selected{% endif %}>Pending</option>
+        </select>
+      </div>
+
+      <div style="flex:1;min-width:130px">
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Date From</label>
+        <input type="date" name="date_from" value="{{ date_from }}" class="form-control">
+      </div>
+
+      <div style="flex:1;min-width:130px">
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Date To</label>
+        <input type="date" name="date_to" value="{{ date_to }}" class="form-control">
+      </div>
+
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <button type="submit" class="btn btn-primary">Search</button>
+        <a href="{{ url_for('transcripts.search') }}" class="btn btn-outline">Clear</a>
+      </div>
+
+    </div>
+  </form>
+</div>
+
+{% if query or language or session_type or status or date_from or date_to %}
+<p style="font-size:13px;color:var(--muted);margin-bottom:16px">
+  {% if total == 0 %}
+    No results found.
+  {% elif total == 1 %}
+    1 result found.
+  {% else %}
+    {{ total }} results found.
+  {% endif %}
+  {% if query %}
+    &nbsp;Showing matches for <strong>"{{ query }}"</strong>
+  {% endif %}
+</p>
+{% endif %}
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Matter</th>
+          <th>Accused</th>
+          <th>Session Type</th>
+          <th>Language</th>
+          <th>Status</th>
+          <th>Created</th>
+          {% if query %}<th>Matches</th>{% endif %}
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in results %}
+        <tr>
+          <td>
+            <strong>{{ t.matter.matter_number if t.matter else '—' }}</strong>
+            {% if t.matter and t.matter.title %}
+            <br><span style="font-size:12px;color:var(--muted)">{{ t.matter.title }}</span>
+            {% endif %}
+          </td>
+          <td>{{ t.matter.accused if t.matter and t.matter.accused else '—' }}</td>
+          <td>{{ t.recording.session_type if t.recording else '—' }}</td>
+          <td>{{ t.language }}</td>
+          <td>
+            {% if t.is_approved %}
+            <span style="color:var(--green);font-size:12px;font-weight:500">✓ Approved</span>
+            {% else %}
+            <span style="color:var(--muted);font-size:12px">Pending</span>
+            {% endif %}
+          </td>
+          <td>{{ t.created_at.strftime('%d %b %Y') }}</td>
+          {% if query %}
+          <td>
+            {% set count = match_counts.get(t.id, 0) %}
+            {% if count > 0 %}
+            <span style="font-size:12px;color:var(--green);font-weight:500">
+              {{ count }} hit{{ 's' if count != 1 }}
+            </span>
+            {% else %}
+            <span style="font-size:12px;color:var(--muted)">—</span>
+            {% endif %}
+          </td>
+          {% endif %}
+          <td>
+            <a href="{{ url_for('transcripts.view', id=t.id, q=query) }}"
+               class="btn btn-outline btn-sm">View</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="{{ 8 if query else 7 }}"
+              style="text-align:center;color:var(--muted);padding:32px">
+            {% if query or language or session_type or status or date_from or date_to %}
+              No transcripts match your search criteria.
+            {% else %}
+              Enter a search term or use the filters above.
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
