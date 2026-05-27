@@ -102,17 +102,24 @@
       </div>
     </div>
 
+    <!-- LIVE TRANSCRIPT BOX -->
     <div class="card" style="margin-bottom:16px">
-      <div class="card-title" style="margin-bottom:12px">Live Transcript</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div class="card-title">Live Transcript</div>
+        <span id="srStatus" style="font-size:11px;color:var(--muted)"></span>
+      </div>
       <div id="liveTranscript"
-           style="min-height:120px;font-size:13px;line-height:1.8;color:var(--muted);
-                  padding:4px 0;outline:none"
+           style="min-height:120px;font-size:13px;line-height:1.8;color:var(--text);
+                  padding:4px 0;outline:none;white-space:pre-wrap"
            contenteditable="true">
-        Start recording to see transcript here...
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:var(--muted)">
+        You can edit the transcript above before saving.
       </div>
     </div>
 
-    <form method="POST" id="saveForm">
+    <!-- HIDDEN FORM — submits audio blob + transcript text together -->
+    <form method="POST" id="saveForm" enctype="multipart/form-data">
       <input type="hidden" name="source" value="live">
       <input type="hidden" name="matter_id" value="{{ matter.id }}">
       <input type="hidden" name="transcript_content" id="transcriptContent">
@@ -121,12 +128,16 @@
       <input type="hidden" name="venue" id="venueHidden">
       <input type="hidden" name="officer" id="officerHidden">
       <input type="hidden" name="language" id="languageHidden">
-      <div style="display:flex;gap:10px">
-        <button type="button" class="btn btn-primary" onclick="saveSession()">
+      <!-- audio_file will be injected here by JS if MediaRecorder captured audio -->
+      <div id="audioFileContainer"></div>
+
+      <div style="display:flex;gap:10px;align-items:center">
+        <button type="button" class="btn btn-primary" id="saveBtn" onclick="saveSession()">
           Save Session
         </button>
         <a href="{{ url_for('recordings.view_matter', id=matter.id) }}"
            class="btn btn-outline">Cancel</a>
+        <span id="saveStatus" style="font-size:12px;color:var(--muted)"></span>
       </div>
     </form>
   </div>
@@ -155,8 +166,7 @@
                  style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%"
                  onchange="fileSelected(this)">
           <div style="font-size:36px;margin-bottom:10px;opacity:0.25">🎵</div>
-          <div style="font-size:14px;font-weight:500;margin-bottom:6px"
-               id="uploadTitle">
+          <div style="font-size:14px;font-weight:500;margin-bottom:6px" id="uploadTitle">
             Drop audio file here or click to browse
           </div>
           <div style="font-size:12px;color:var(--muted)">
@@ -166,7 +176,7 @@
         <div style="margin-top:14px;padding:12px 16px;background:var(--surface);
              border-radius:8px;font-size:12px;color:var(--muted);line-height:1.6">
           <strong style="color:var(--text)">How AI transcription works:</strong><br>
-          Your audio is sent to Groq Whisper Large V3 for transcription.
+          Your audio is sent to Whisper AI for transcription.
           English sessions are transcribed directly.
           Setswana and Mixed sessions use auto-detection for best results.
           The transcript is automatically saved and linked to this matter.
@@ -187,6 +197,13 @@
 <script>
 let recording=false, paused=false, seconds=0;
 let timerIv, waveIv, recognition=null, liveText='';
+let mediaRecorder=null, audioChunks=[], audioBlob=null;
+
+// ── Speech recognition setup ──
+const hasSR = ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
+if (!hasSR) {
+  document.getElementById('srStatus').textContent = 'Live captions unavailable in this browser';
+}
 
 function switchTab(tab, btn) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -199,16 +216,18 @@ function toggleRecording() {
   recording ? stopRecording() : startRecording();
 }
 
-function startRecording() {
-  recording=true; paused=false; seconds=0; liveText='';
+async function startRecording() {
+  recording=true; paused=false; seconds=0; liveText=''; audioChunks=[]; audioBlob=null;
+
   const btn = document.getElementById('recBtn');
   btn.className = 'rec-btn recording';
   btn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="white"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
-  document.getElementById('recStatus').textContent  = 'RECORDING IN PROGRESS';
-  document.getElementById('pauseBtn').disabled      = false;
-  document.getElementById('stopBtn').disabled       = false;
+  document.getElementById('recStatus').textContent = 'RECORDING IN PROGRESS';
+  document.getElementById('pauseBtn').disabled     = false;
+  document.getElementById('stopBtn').disabled      = false;
   document.getElementById('liveTranscript').textContent = '';
 
+  // ── Start timer ──
   timerIv = setInterval(() => {
     if (!paused) {
       seconds++;
@@ -221,77 +240,11 @@ function startRecording() {
 
   waveIv = setInterval(() => { if (!paused) animateWave(); }, 120);
 
-  if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    recognition = new SR();
-    recognition.continuous     = true;
-    recognition.interimResults = true;
-    const lang = document.getElementById('language').value;
-    recognition.lang = lang === 'Setswana' ? 'tn' : 'en-BW';
-    recognition.onresult = (e) => {
-      let interim = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) liveText += e.results[i][0].transcript + ' ';
-        else interim = e.results[i][0].transcript;
-      }
-      document.getElementById('liveTranscript').textContent = liveText + interim;
-    };
-    recognition.start();
-  }
-}
-
-function pauseRecording() {
-  paused = !paused;
-  document.getElementById('pauseBtn').textContent    = paused ? 'Resume' : 'Pause';
-  document.getElementById('recStatus').textContent   = paused ? 'PAUSED' : 'RECORDING IN PROGRESS';
-  if (recognition) paused ? recognition.stop() : recognition.start();
-}
-
-function stopRecording() {
-  recording = false; paused = false;
-  clearInterval(timerIv); clearInterval(waveIv);
-  if (recognition) { recognition.stop(); recognition = null; }
-  const btn = document.getElementById('recBtn');
-  btn.className = 'rec-btn idle';
-  btn.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="white"><circle cx="12" cy="12" r="6"/></svg>';
-  document.getElementById('recStatus').textContent = 'RECORDING STOPPED — REVIEW AND SAVE';
-  document.getElementById('pauseBtn').disabled     = true;
-  document.getElementById('stopBtn').disabled      = true;
-  document.querySelectorAll('.wave-bar').forEach(b => {
-    b.style.height = '4px'; b.classList.remove('active');
-  });
-}
-
-function saveSession() {
-  document.getElementById('transcriptContent').value = document.getElementById('liveTranscript').textContent;
-  document.getElementById('durationInput').value     = seconds;
-  document.getElementById('sessionTypeHidden').value = document.getElementById('sessionType').value;
-  document.getElementById('venueHidden').value       = document.getElementById('venue').value;
-  document.getElementById('officerHidden').value     = document.getElementById('officer').value;
-  document.getElementById('languageHidden').value    = document.getElementById('language').value;
-  document.getElementById('saveForm').submit();
-}
-
-function syncUploadFields() {
-  document.getElementById('sessionTypeUpload').value = document.getElementById('sessionType').value;
-  document.getElementById('venueUpload').value       = document.getElementById('venue').value;
-  document.getElementById('officerUpload').value     = document.getElementById('officer').value;
-  document.getElementById('languageUpload').value    = document.getElementById('language').value;
-}
-
-function fileSelected(input) {
-  const file = input.files[0];
-  if (file) {
-    document.getElementById('uploadTitle').textContent = '✓ ' + file.name;
-    document.getElementById('dropZone').style.borderColor = 'var(--gold)';
-  }
-}
-
-function animateWave() {
-  document.querySelectorAll('.wave-bar').forEach(b => {
-    b.style.height = (Math.random()*28+4) + 'px';
-    b.classList.add('active');
-  });
-}
-</script>
-{% endblock %}
+  // ── Start MediaRecorder to capture actual audio ──
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream, { mimeType: getSupportedMimeType() });
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+      stream.getTracks().f
