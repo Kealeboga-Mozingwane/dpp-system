@@ -103,6 +103,21 @@ def toggle(id):
     flash(f'User {user.username} has been {status}.', 'success')
     return redirect(url_for('users.index'))
 
+@users.route('/users/<int:id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete(id):
+    user = User.query.get_or_404(id)
+    if user.id == current_user.id:
+        flash('You cannot delete your own account.', 'danger')
+        return redirect(url_for('users.index'))
+    username = user.username
+    db.session.delete(user)
+    db.session.commit()
+    log_action(f'Deleted user {username}')
+    flash(f'User {username} has been deleted.', 'success')
+    return redirect(url_for('users.index'))
+
 @users.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile():

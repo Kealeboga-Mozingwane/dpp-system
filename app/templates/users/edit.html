@@ -13,17 +13,20 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
         <div class="form-group">
           <label class="form-label">Full Name</label>
-          <input type="text" name="full_name" class="form-control" value="{{ user.full_name or '' }}">
+          <input type="text" name="full_name" class="form-control"
+                 value="{{ user.full_name or '' }}">
         </div>
         <div class="form-group">
           <label class="form-label">Email</label>
-          <input type="email" name="email" class="form-control" value="{{ user.email or '' }}">
+          <input type="email" name="email" class="form-control"
+                 value="{{ user.email or '' }}">
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
         <div class="form-group">
           <label class="form-label">Phone</label>
-          <input type="text" name="phone" class="form-control" value="{{ user.phone or '' }}">
+          <input type="text" name="phone" class="form-control"
+                 value="{{ user.phone or '' }}">
         </div>
         <div class="form-group">
           <label class="form-label">Role</label>
@@ -36,7 +39,8 @@
       </div>
       <div class="form-group">
         <label class="form-label">Active</label>
-        <input type="checkbox" name="is_active" style="width:auto" {{ 'checked' if user.is_active }}>
+        <input type="checkbox" name="is_active" style="width:auto"
+               {{ 'checked' if user.is_active }}>
         <span style="font-size:12px;color:var(--muted);margin-left:6px">User can log in</span>
       </div>
       <div style="background:var(--surface);border-radius:8px;padding:16px;margin-bottom:16px">
