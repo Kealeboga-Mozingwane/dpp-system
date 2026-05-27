@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, request, flash, current_app
+from flask import Blueprint, render_template, redirect, url_for, request, flash, current_app, send_from_directory
 from flask_login import login_required, current_user
 from app.models import Matter, Recording, Transcript, AuditLog
 from app import db
@@ -33,7 +33,6 @@ def transcribe_audio(file_path, language='English'):
         'Mixed':    None,
     }
     whisper_lang = lang_map.get(language, 'en')
-
     if provider == 'groq':
         return _transcribe_groq(file_path, whisper_lang)
     elif provider == 'openai':
@@ -73,10 +72,7 @@ def _transcribe_openai(file_path, whisper_lang):
         import openai
         client = openai.OpenAI(api_key=api_key)
         with open(file_path, 'rb') as f:
-            kwargs = {
-                'model': 'whisper-1',
-                'file' : f,
-            }
+            kwargs = {'model': 'whisper-1', 'file': f}
             if whisper_lang:
                 kwargs['language'] = whisper_lang
             response = client.audio.transcriptions.create(**kwargs)
@@ -151,8 +147,6 @@ def view_matter(id):
 @login_required
 def delete_matter(id):
     matter = Matter.query.get_or_404(id)
-
-    # Delete physical audio files and transcripts for all recordings
     for r in matter.recordings:
         if r.filename:
             file_path = os.path.join(
@@ -165,16 +159,13 @@ def delete_matter(id):
         if r.transcript:
             db.session.delete(r.transcript)
         db.session.delete(r)
-
-    # Delete any transcripts linked directly to the matter
     for t in matter.transcripts:
         db.session.delete(t)
-
     matter_number = matter.matter_number
     log_action(f'Deleted matter {matter_number}')
     db.session.delete(matter)
     db.session.commit()
-    flash(f'Matter {matter_number} and all its recordings and transcripts have been deleted.', 'success')
+    flash(f'Matter {matter_number} and all its data have been deleted.', 'success')
     return redirect(url_for('recordings.matters'))
 
 
@@ -210,7 +201,6 @@ def new_recording():
                 os.makedirs(os.path.dirname(upload_path), exist_ok=True)
                 file.save(upload_path)
                 file_size = os.path.getsize(upload_path)
-
                 ai_transcript, error = transcribe_audio(upload_path, language)
                 if error:
                     flash(f'AI transcription failed: {error}', 'warning')
@@ -221,8 +211,7 @@ def new_recording():
         r = Recording(
             filename      = filename or f"live_{uuid.uuid4().hex}.txt",
             original_name = file.filename if source == 'upload' and file else 'Live Recording',
-            session_type  = request.form.get('sessionType') or request.form.get(
-                'session_type', 'Court Hearing'),
+            session_type  = request.form.get('sessionType') or request.form.get('session_type', 'Court Hearing'),
             venue         = request.form.get('venue', '').strip(),
             officer       = request.form.get('officer', '').strip(),
             language      = language,
@@ -257,11 +246,11 @@ def new_recording():
 
         provider = os.environ.get('TRANSCRIPTION_PROVIDER', 'groq').upper()
         if source == 'upload' and ai_transcript:
-            flash(f'Recording uploaded and transcribed by {provider} AI — Whisper Large V3.', 'success')
+            flash(f'Recording uploaded and transcribed by {provider} AI.', 'success')
         else:
             flash('Recording saved successfully.', 'success')
 
-        return redirect(url_for('recordings.view_matter', id=matter.id))
+        return redirect(url_for('recordings.view_recording', id=r.id))
 
     return render_template('recordings/new_recording.html', matter=matter)
 
@@ -271,6 +260,51 @@ def new_recording():
 def view_recording(id):
     recording = Recording.query.get_or_404(id)
     return render_template('recordings/view_recording.html', recording=recording)
+
+
+@recordings.route('/recordings/audio/<path:filename>')
+@login_required
+def serve_audio(filename):
+    """Serve audio files securely — only authenticated users can access."""
+    return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)
+
+
+@recordings.route('/recordings/<int:id>/retranscribe', methods=['POST'])
+@login_required
+def retranscribe(id):
+    """Manually trigger transcription for a recording that has no transcript."""
+    recording = Recording.query.get_or_404(id)
+
+    if recording.transcript:
+        flash('This recording already has a transcript.', 'info')
+        return redirect(url_for('recordings.view_recording', id=id))
+
+    if not recording.filename:
+        flash('No audio file found for this recording.', 'danger')
+        return redirect(url_for('recordings.view_recording', id=id))
+
+    file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], recording.filename)
+    if not os.path.exists(file_path):
+        flash('Audio file not found on disk.', 'danger')
+        return redirect(url_for('recordings.view_recording', id=id))
+
+    content, error = transcribe_audio(file_path, recording.language or 'English')
+    if error:
+        flash(f'Transcription failed: {error}', 'danger')
+        return redirect(url_for('recordings.view_recording', id=id))
+
+    t = Transcript(
+        content      = content,
+        language     = recording.language,
+        matter_id    = recording.matter_id,
+        recording_id = recording.id,
+        created_by   = current_user.id
+    )
+    db.session.add(t)
+    db.session.commit()
+    log_action(f'Generated transcript for recording {id}')
+    flash('Transcript generated successfully.', 'success')
+    return redirect(url_for('transcripts.view', id=t.id))
 
 
 @recordings.route('/recordings/<int:id>/delete', methods=['POST'])

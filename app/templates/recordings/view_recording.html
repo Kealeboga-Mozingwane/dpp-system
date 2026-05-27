@@ -4,47 +4,83 @@
 {% block content %}
 <div style="max-width:720px">
   <a href="{{ url_for('recordings.view_matter', id=recording.matter_id) }}"
-    style="font-size:13px;color:var(--muted);display:inline-block;margin-bottom:20px">
+     style="font-size:13px;color:var(--muted);display:inline-block;margin-bottom:20px">
     ← Back to {{ recording.matter.matter_number if recording.matter else 'Matter' }}
   </a>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+
+    <!-- SESSION INFO -->
     <div class="card">
       <div class="card-title">Session Info</div>
       <table style="margin-top:12px">
-        <tr><td style="color:var(--muted);font-size:12px;padding:5px 0;width:120px">Session Type</td><td>{{ recording.session_type }}</td></tr>
-        <tr><td style="color:var(--muted);font-size:12px;padding:5px 0">Venue</td><td>{{ recording.venue or '—' }}</td></tr>
-        <tr><td style="color:var(--muted);font-size:12px;padding:5px 0">Language</td><td>{{ recording.language }}</td></tr>
-        <tr><td style="color:var(--muted);font-size:12px;padding:5px 0">Duration</td><td>{{ '%d:%02d'|format(recording.duration//60, recording.duration%60) if recording.duration else '—' }}</td></tr>
-        <tr><td style="color:var(--muted);font-size:12px;padding:5px 0">Date</td><td>{{ recording.created_at.strftime('%d %b %Y %H:%M') }}</td></tr>
+        <tr>
+          <td style="color:var(--muted);font-size:12px;padding:5px 0;width:120px">Session Type</td>
+          <td>{{ recording.session_type }}</td>
+        </tr>
+        <tr>
+          <td style="color:var(--muted);font-size:12px;padding:5px 0">Venue</td>
+          <td>{{ recording.venue or '—' }}</td>
+        </tr>
+        <tr>
+          <td style="color:var(--muted);font-size:12px;padding:5px 0">Language</td>
+          <td>{{ recording.language }}</td>
+        </tr>
+        <tr>
+          <td style="color:var(--muted);font-size:12px;padding:5px 0">Duration</td>
+          <td>{{ '%d:%02d'|format(recording.duration//60, recording.duration%60) if recording.duration else '—' }}</td>
+        </tr>
+        <tr>
+          <td style="color:var(--muted);font-size:12px;padding:5px 0">Date</td>
+          <td>{{ recording.created_at.strftime('%d %b %Y %H:%M') }}</td>
+        </tr>
       </table>
     </div>
+
+    <!-- TRANSCRIPT STATUS -->
     <div class="card">
       <div class="card-title">Transcript Status</div>
       <div style="margin-top:16px;text-align:center">
         {% if recording.transcript %}
-        <div style="font-size:40px;margin-bottom:8px">✓</div>
-        <div style="font-size:13px;font-weight:500;color:var(--green)">Transcript Available</div>
-        <a href="{{ url_for('transcripts.view', id=recording.transcript.id) }}"
-          class="btn btn-primary btn-sm" style="margin-top:12px">View Transcript</a>
+          <div style="font-size:40px;margin-bottom:8px">✓</div>
+          <div style="font-size:13px;font-weight:500;color:var(--green)">
+            Transcript Available
+          </div>
+          <a href="{{ url_for('transcripts.view', id=recording.transcript.id) }}"
+             class="btn btn-primary btn-sm" style="margin-top:12px">
+            View Transcript
+          </a>
         {% else %}
-        <div style="font-size:40px;margin-bottom:8px;opacity:0.3">📄</div>
-        <div style="font-size:13px;color:var(--muted)">No transcript yet</div>
-        <a href="{{ url_for('transcripts.new', recording_id=recording.id) }}"
-          class="btn btn-gold btn-sm" style="margin-top:12px">Generate Transcript</a>
+          <div style="font-size:40px;margin-bottom:8px;opacity:0.3" id="pendingIcon">⏳</div>
+          <div style="font-size:13px;color:var(--muted)" id="pendingText">
+            No transcript yet.
+          </div>
+          <form method="POST"
+                action="{{ url_for('recordings.retranscribe', id=recording.id) }}"
+                style="margin-top:12px">
+            <button type="submit" class="btn btn-gold btn-sm">
+              Generate Transcript
+            </button>
+          </form>
+          <div style="font-size:11px;color:var(--muted);margin-top:8px">
+            Click above to start transcription
+          </div>
         {% endif %}
       </div>
     </div>
+
   </div>
 
+  <!-- AUDIO PLAYER -->
   {% if recording.filename %}
   <div class="card">
     <div class="card-title" style="margin-bottom:12px">Audio Playback</div>
     <audio controls style="width:100%">
-      <source src="{{ url_for('static', filename='uploads/' + recording.filename) }}">
+      <source src="{{ url_for('recordings.serve_audio', filename=recording.filename) }}">
       Your browser does not support audio playback.
     </audio>
   </div>
   {% endif %}
+
 </div>
 {% endblock %}
