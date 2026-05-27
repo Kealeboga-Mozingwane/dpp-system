@@ -38,7 +38,17 @@
   </div>
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Session Type</th><th>Venue</th><th>Language</th><th>Duration</th><th>Date</th><th>Transcript</th><th></th></tr></thead>
+      <thead>
+        <tr>
+          <th>Session Type</th>
+          <th>Venue</th>
+          <th>Language</th>
+          <th>Duration</th>
+          <th>Date</th>
+          <th>Transcript</th>
+          <th></th>
+        </tr>
+      </thead>
       <tbody>
         {% for r in matter.recordings %}
         <tr>
@@ -54,12 +64,22 @@
             <span style="color:var(--muted);font-size:12px">Pending</span>
             {% endif %}
           </td>
-          <td>
-            <a href="{{ url_for('recordings.view_recording', id=r.id) }}" class="btn btn-outline btn-sm">View</a>
+          <td style="display:flex;gap:6px">
+            <a href="{{ url_for('recordings.view_recording', id=r.id) }}"
+               class="btn btn-outline btn-sm">View</a>
+            <form method="POST"
+                  action="{{ url_for('recordings.delete_recording', id=r.id) }}"
+                  onsubmit="return confirm('Delete this recording and its transcript? This cannot be undone.')">
+              <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+            </form>
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">No recordings yet for this matter.</td></tr>
+        <tr>
+          <td colspan="7" style="text-align:center;color:var(--muted);padding:24px">
+            No recordings yet for this matter.
+          </td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>

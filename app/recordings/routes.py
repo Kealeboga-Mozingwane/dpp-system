@@ -26,17 +26,6 @@ def _now():
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 def transcribe_audio(file_path, language='English'):
-    """
-    Transcribe audio using available provider.
-    Controlled by TRANSCRIPTION_PROVIDER env var:
-      groq   — Groq Whisper API (free tier, default)
-      openai — OpenAI Whisper API (paid)
-      local  — Self-hosted Whisper on DPP servers
-    Language:
-      English  — passes 'en' to Whisper
-      Setswana — passes None (auto-detect, best results)
-      Mixed    — passes None (auto-detect)
-    """
     provider = os.environ.get('TRANSCRIPTION_PROVIDER', 'groq').lower()
     lang_map = {
         'English':  'en',
@@ -56,7 +45,6 @@ def transcribe_audio(file_path, language='English'):
 
 
 def _transcribe_groq(file_path, whisper_lang):
-    """Groq Whisper Large V3 — free tier, fast"""
     api_key = os.environ.get('GROQ_API_KEY')
     if not api_key:
         return None, 'GROQ_API_KEY not configured in environment'
@@ -78,7 +66,6 @@ def _transcribe_groq(file_path, whisper_lang):
 
 
 def _transcribe_openai(file_path, whisper_lang):
-    """OpenAI Whisper API — paid, reliable"""
     api_key = os.environ.get('OPENAI_API_KEY')
     if not api_key:
         return None, 'OPENAI_API_KEY not configured in environment'
@@ -99,11 +86,6 @@ def _transcribe_openai(file_path, whisper_lang):
 
 
 def _transcribe_local(file_path, whisper_lang):
-    """
-    Self-hosted Whisper on DPP government servers.
-    Set LOCAL_WHISPER_URL to the server endpoint.
-    e.g. http://dpp-server-ip:9000/asr
-    """
     import requests as req
     url = os.environ.get('LOCAL_WHISPER_URL', 'http://localhost:9000/asr')
     try:
@@ -258,3 +240,30 @@ def new_recording():
 def view_recording(id):
     recording = Recording.query.get_or_404(id)
     return render_template('recordings/view_recording.html', recording=recording)
+
+
+@recordings.route('/recordings/<int:id>/delete', methods=['POST'])
+@login_required
+def delete_recording(id):
+    recording = Recording.query.get_or_404(id)
+    matter_id = recording.matter_id
+
+    # Delete the physical audio file from disk if it exists
+    if recording.filename:
+        file_path = os.path.join(
+            current_app.config['UPLOAD_FOLDER'], recording.filename)
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception:
+                pass  # Log but don't block deletion
+
+    # Delete linked transcript if any
+    if recording.transcript:
+        db.session.delete(recording.transcript)
+
+    db.session.delete(recording)
+    db.session.commit()
+    log_action(f'Deleted recording {id} from matter {matter_id}')
+    flash('Recording deleted successfully.', 'success')
+    return redirect(url_for('recordings.view_matter', id=matter_id))
