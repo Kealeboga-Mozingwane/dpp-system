@@ -44,7 +44,7 @@
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
       <div class="form-group">
         <label class="form-label">Session Type</label>
-        <select class="form-control" id="sessionType" name="sessionType">
+        <select class="form-control" id="sessionType">
           <option>Court Hearing</option>
           <option>Bail Application</option>
           <option>Pre-trial Conference</option>
@@ -56,13 +56,13 @@
       </div>
       <div class="form-group">
         <label class="form-label">Venue / Court</label>
-        <input type="text" class="form-control" id="venue" name="venue"
+        <input type="text" class="form-control" id="venue"
                placeholder="e.g. High Court"
                value="{{ matter.court or '' }}">
       </div>
       <div class="form-group">
         <label class="form-label">Language</label>
-        <select class="form-control" id="language" name="language">
+        <select class="form-control" id="language">
           <option value="English">English</option>
           <option value="Setswana">Setswana</option>
           <option value="Mixed">Mixed (English & Setswana)</option>
@@ -71,7 +71,7 @@
     </div>
     <div class="form-group">
       <label class="form-label">Presiding Officer / Chair</label>
-      <input type="text" class="form-control" id="officer" name="officer"
+      <input type="text" class="form-control" id="officer"
              placeholder="Name of judge, magistrate or chairperson">
     </div>
   </div>
@@ -96,13 +96,10 @@
       </div>
       <div class="rec-controls">
         <button class="ctrl-btn" id="pauseBtn" onclick="pauseRecording()" disabled>Pause</button>
-        <button class="ctrl-btn primary" id="stopBtn" onclick="stopRecording()" disabled>
-          Stop & Save
-        </button>
+        <button class="ctrl-btn primary" id="stopBtn" onclick="stopRecording()" disabled>Stop & Save</button>
       </div>
     </div>
 
-    <!-- LIVE TRANSCRIPT BOX -->
     <div class="card" style="margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <div class="card-title">Live Transcript</div>
@@ -111,14 +108,12 @@
       <div id="liveTranscript"
            style="min-height:120px;font-size:13px;line-height:1.8;color:var(--text);
                   padding:4px 0;outline:none;white-space:pre-wrap"
-           contenteditable="true">
-      </div>
+           contenteditable="true"></div>
       <div style="margin-top:8px;font-size:11px;color:var(--muted)">
         You can edit the transcript above before saving.
       </div>
     </div>
 
-    <!-- HIDDEN FORM — submits audio blob + transcript text together -->
     <form method="POST" id="saveForm" enctype="multipart/form-data">
       <input type="hidden" name="source" value="live">
       <input type="hidden" name="matter_id" value="{{ matter.id }}">
@@ -128,9 +123,7 @@
       <input type="hidden" name="venue" id="venueHidden">
       <input type="hidden" name="officer" id="officerHidden">
       <input type="hidden" name="language" id="languageHidden">
-      <!-- audio_file will be injected here by JS if MediaRecorder captured audio -->
       <div id="audioFileContainer"></div>
-
       <div style="display:flex;gap:10px;align-items:center">
         <button type="button" class="btn btn-primary" id="saveBtn" onclick="saveSession()">
           Save Session
@@ -145,7 +138,7 @@
   <!-- UPLOAD TAB -->
   <div id="tab-upload" style="display:none">
     <div class="ai-badge">
-      ✦ Groq Whisper Large V3 — AI transcription in seconds
+      ✦ Whisper AI — automatic transcription
     </div>
     <form method="POST" enctype="multipart/form-data">
       <input type="hidden" name="source" value="upload">
@@ -192,6 +185,7 @@
       </div>
     </form>
   </div>
+
 </div>
 
 <script>
@@ -199,7 +193,6 @@ let recording=false, paused=false, seconds=0;
 let timerIv, waveIv, recognition=null, liveText='';
 let mediaRecorder=null, audioChunks=[], audioBlob=null;
 
-// ── Speech recognition setup ──
 const hasSR = ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
 if (!hasSR) {
   document.getElementById('srStatus').textContent = 'Live captions unavailable in this browser';
@@ -218,7 +211,6 @@ function toggleRecording() {
 
 async function startRecording() {
   recording=true; paused=false; seconds=0; liveText=''; audioChunks=[]; audioBlob=null;
-
   const btn = document.getElementById('recBtn');
   btn.className = 'rec-btn recording';
   btn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="white"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
@@ -227,7 +219,6 @@ async function startRecording() {
   document.getElementById('stopBtn').disabled      = false;
   document.getElementById('liveTranscript').textContent = '';
 
-  // ── Start timer ──
   timerIv = setInterval(() => {
     if (!paused) {
       seconds++;
@@ -240,11 +231,124 @@ async function startRecording() {
 
   waveIv = setInterval(() => { if (!paused) animateWave(); }, 120);
 
-  // ── Start MediaRecorder to capture actual audio ──
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     mediaRecorder = new MediaRecorder(stream, { mimeType: getSupportedMimeType() });
     mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
     mediaRecorder.onstop = () => {
       audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
-      stream.getTracks().f
+      stream.getTracks().forEach(t => t.stop());
+    };
+    mediaRecorder.start(1000);
+  } catch(e) {
+    console.warn('MediaRecorder not available:', e);
+  }
+
+  if (hasSR) {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SR();
+    recognition.continuous     = true;
+    recognition.interimResults = true;
+    const lang = document.getElementById('language').value;
+    recognition.lang = lang === 'Setswana' ? 'tn' : 'en-BW';
+    recognition.onresult = (e) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) liveText += e.results[i][0].transcript + ' ';
+        else interim = e.results[i][0].transcript;
+      }
+      document.getElementById('liveTranscript').textContent = liveText + interim;
+    };
+    recognition.onerror = () => {};
+    recognition.start();
+    document.getElementById('srStatus').textContent = '● Live captions active';
+  }
+}
+
+function pauseRecording() {
+  paused = !paused;
+  document.getElementById('pauseBtn').textContent  = paused ? 'Resume' : 'Pause';
+  document.getElementById('recStatus').textContent = paused ? 'PAUSED' : 'RECORDING IN PROGRESS';
+  if (recognition) paused ? recognition.stop() : recognition.start();
+  if (mediaRecorder) {
+    if (paused && mediaRecorder.state === 'recording') mediaRecorder.pause();
+    if (!paused && mediaRecorder.state === 'paused') mediaRecorder.resume();
+  }
+}
+
+function stopRecording() {
+  recording = false; paused = false;
+  clearInterval(timerIv); clearInterval(waveIv);
+  if (recognition) { recognition.stop(); recognition = null; }
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+  const btn = document.getElementById('recBtn');
+  btn.className = 'rec-btn idle';
+  btn.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="white"><circle cx="12" cy="12" r="6"/></svg>';
+  document.getElementById('recStatus').textContent = 'RECORDING STOPPED — REVIEW AND SAVE';
+  document.getElementById('pauseBtn').disabled     = true;
+  document.getElementById('stopBtn').disabled      = true;
+  document.getElementById('srStatus').textContent  = '';
+  document.querySelectorAll('.wave-bar').forEach(b => {
+    b.style.height = '4px'; b.classList.remove('active');
+  });
+}
+
+function getSupportedMimeType() {
+  const types = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4'];
+  for (const t of types) { if (MediaRecorder.isTypeSupported(t)) return t; }
+  return '';
+}
+
+async function saveSession() {
+  const transcript = document.getElementById('liveTranscript').textContent.trim();
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  document.getElementById('saveStatus').textContent = 'Saving...';
+
+  document.getElementById('transcriptContent').value = transcript;
+  document.getElementById('durationInput').value     = seconds;
+  document.getElementById('sessionTypeHidden').value = document.getElementById('sessionType').value;
+  document.getElementById('venueHidden').value       = document.getElementById('venue').value;
+  document.getElementById('officerHidden').value     = document.getElementById('officer').value;
+  document.getElementById('languageHidden').value    = document.getElementById('language').value;
+
+  if (audioBlob && audioBlob.size > 0) {
+    document.getElementById('saveStatus').textContent = 'Uploading audio for AI transcription...';
+    const ext = mediaRecorder.mimeType.includes('ogg') ? 'ogg' :
+                mediaRecorder.mimeType.includes('mp4') ? 'mp4' : 'webm';
+    const file = new File([audioBlob], `live_recording.${ext}`, { type: audioBlob.type });
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    const fi = document.createElement('input');
+    fi.type = 'file'; fi.name = 'audio_file'; fi.style.display = 'none';
+    fi.files = dt.files;
+    document.getElementById('audioFileContainer').appendChild(fi);
+    document.querySelector('#saveForm input[name="source"]').value = 'upload';
+  }
+
+  document.getElementById('saveForm').submit();
+}
+
+function syncUploadFields() {
+  document.getElementById('sessionTypeUpload').value = document.getElementById('sessionType').value;
+  document.getElementById('venueUpload').value       = document.getElementById('venue').value;
+  document.getElementById('officerUpload').value     = document.getElementById('officer').value;
+  document.getElementById('languageUpload').value    = document.getElementById('language').value;
+}
+
+function fileSelected(input) {
+  const file = input.files[0];
+  if (file) {
+    document.getElementById('uploadTitle').textContent = '✓ ' + file.name;
+    document.getElementById('dropZone').style.borderColor = 'var(--gold)';
+  }
+}
+
+function animateWave() {
+  document.querySelectorAll('.wave-bar').forEach(b => {
+    b.style.height = (Math.random()*28+4) + 'px';
+    b.classList.add('active');
+  });
+}
+</script>
+{% endblock %}
