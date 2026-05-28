@@ -39,7 +39,7 @@ def _is_online():
 def transcribe_audio(file_path, language='English'):
     lang_map = {
         'English':  'en',
-        'Setswana': 'tn',
+        'Setswana': None,  # Auto-detect,
         'Mixed':    None,
     }
     whisper_lang = lang_map.get(language, 'en')
