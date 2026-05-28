@@ -26,32 +26,41 @@ def _now():
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 def _is_online():
-    """Check if we have internet access to use GROQ."""
-    try:
-        socket.setdefaulttimeout(3)
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect(('8.8.8.8', 53))
-        s.close()
-        return True
-    except Exception:
-        return False
+    """Check internet by trying multiple reliable hosts."""
+    hosts = [('8.8.8.8', 53), ('1.1.1.1', 53), ('208.67.222.222', 53)]
+    for host, port in hosts:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(2)
+            s.connect((host, port))
+            s.close()
+            return True
+        except Exception:
+            continue
+    return False
 
 def transcribe_audio(file_path, language='English'):
     lang_map = {
         'English':  'en',
-        'Setswana': None,  # Auto-detect,
+        'Setswana': None,
         'Mixed':    None,
     }
     whisper_lang = lang_map.get(language, 'en')
     provider = os.environ.get('TRANSCRIPTION_PROVIDER', 'groq').lower()
 
-    # Auto-switch: if provider is groq but we're offline, fall back to local Whisper
-    if provider == 'groq' and not _is_online():
-        flash('No internet detected — using local Whisper for transcription.', 'info')
-        return _transcribe_local(file_path, whisper_lang)
-
     if provider == 'groq':
-        return _transcribe_groq(file_path, whisper_lang)
+        if not _is_online():
+            flash('Offline — using local Whisper for transcription.', 'info')
+            return _transcribe_local(file_path, whisper_lang)
+        # Online — try GROQ, fall back to local Whisper on any network error
+        result, error = _transcribe_groq(file_path, whisper_lang)
+        if error and any(x in error.lower() for x in [
+            'connect', 'network', 'urlerror', 'getaddr',
+            'timeout', 'refused', 'unreachable', 'errno'
+        ]):
+            flash('GROQ unreachable — falling back to local Whisper.', 'info')
+            return _transcribe_local(file_path, whisper_lang)
+        return result, error
     elif provider == 'openai':
         return _transcribe_openai(file_path, whisper_lang)
     elif provider == 'local':
@@ -258,7 +267,7 @@ def new_recording():
 
         provider = os.environ.get('TRANSCRIPTION_PROVIDER', 'groq').upper()
         if source == 'upload' and ai_transcript:
-            flash(f'Recording uploaded and transcribed by {provider} AI.', 'success')
+            flash(f'Recording uploaded and transcribed successfully.', 'success')
         else:
             flash('Recording saved successfully.', 'success')
 
