@@ -22,20 +22,30 @@ def create_app():
     app.config['SECRET_KEY']                     = os.environ.get('SECRET_KEY', 'dev-key')
     app.config['SQLALCHEMY_DATABASE_URI']        = os.environ.get('DATABASE_URL', 'sqlite:///dpp.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['SQLALCHEMY_ENGINE_OPTIONS']      = {
-        'pool_pre_ping': True,
-        'pool_recycle': 300,
-        'pool_timeout': 20,
-        'pool_size': 5,
-        'max_overflow': 2,
-        'connect_args': {
-            'connect_timeout': 10,
-            'keepalives': 1,
-            'keepalives_idle': 30,
-            'keepalives_interval': 10,
-            'keepalives_count': 5
+
+    # Only apply PostgreSQL-specific connection pool settings
+    db_uri = app.config['SQLALCHEMY_DATABASE_URI']
+    if db_uri.startswith('postgresql'):
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'pool_pre_ping': True,
+            'pool_recycle': 300,
+            'pool_timeout': 20,
+            'pool_size': 5,
+            'max_overflow': 2,
+            'connect_args': {
+                'connect_timeout': 10,
+                'keepalives': 1,
+                'keepalives_idle': 30,
+                'keepalives_interval': 10,
+                'keepalives_count': 5
+            }
         }
-    }
+    else:
+        # SQLite — no special options needed
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'pool_pre_ping': True,
+        }
+
     app.config['UPLOAD_FOLDER']                  = os.path.join(app.root_path, 'static', 'uploads')
     app.config['MAX_CONTENT_LENGTH']             = 500 * 1024 * 1024
     app.config['MAIL_SERVER']                    = os.environ.get('MAIL_SERVER')
