@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, request, flash,
 from flask_login import login_required, current_user
 from app.models import Matter, Recording, Transcript, AuditLog
 from app import db
-import os, uuid
+import os, uuid, socket
 from datetime import datetime, timezone
 
 recordings = Blueprint('recordings', __name__)
@@ -25,14 +25,31 @@ def log_action(action):
 def _now():
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
+def _is_online():
+    """Check if we have internet access to use GROQ."""
+    try:
+        socket.setdefaulttimeout(3)
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect(('8.8.8.8', 53))
+        s.close()
+        return True
+    except Exception:
+        return False
+
 def transcribe_audio(file_path, language='English'):
-    provider = os.environ.get('TRANSCRIPTION_PROVIDER', 'groq').lower()
     lang_map = {
         'English':  'en',
         'Setswana': None,
         'Mixed':    None,
     }
     whisper_lang = lang_map.get(language, 'en')
+    provider = os.environ.get('TRANSCRIPTION_PROVIDER', 'groq').lower()
+
+    # Auto-switch: if provider is groq but we're offline, fall back to local Whisper
+    if provider == 'groq' and not _is_online():
+        flash('No internet detected — using local Whisper for transcription.', 'info')
+        return _transcribe_local(file_path, whisper_lang)
+
     if provider == 'groq':
         return _transcribe_groq(file_path, whisper_lang)
     elif provider == 'openai':
@@ -82,22 +99,17 @@ def _transcribe_openai(file_path, whisper_lang):
 
 
 def _transcribe_local(file_path, whisper_lang):
-    import requests as req
-    url = os.environ.get('LOCAL_WHISPER_URL', 'http://localhost:9000/asr')
+    """Use local openai-whisper Python library — no Docker required."""
     try:
-        with open(file_path, 'rb') as f:
-            params = {}
-            if whisper_lang:
-                params['language'] = whisper_lang
-            response = req.post(
-                url,
-                files  ={'audio_file': f},
-                params =params,
-                timeout=300
-            )
-        if response.status_code == 200:
-            return response.text, None
-        return None, f'Local Whisper returned status {response.status_code}'
+        import whisper
+        model = whisper.load_model('base')
+        options = {}
+        if whisper_lang:
+            options['language'] = whisper_lang
+        result = model.transcribe(file_path, **options)
+        return result['text'], None
+    except ImportError:
+        return None, 'Local Whisper not installed. Run: pip install openai-whisper'
     except Exception as e:
         return None, str(e)
 
@@ -265,7 +277,7 @@ def view_recording(id):
 @recordings.route('/recordings/audio/<path:filename>')
 @login_required
 def serve_audio(filename):
-    """Serve audio files securely — only authenticated users can access."""
+    """Serve audio files securely - only authenticated users can access."""
     return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)
 
 
